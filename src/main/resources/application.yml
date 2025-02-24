@@ -1,0 +1,80 @@
+server:
+  port: 8080
+
+crawler:
+  target-url: https://example.com/news
+  fixed-delay: 300000  # 5分钟
+  timeout: 10000       # 10秒
+  user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/91.0.4472.124 Safari/537.36
+
+spring:
+  application:
+    name: wiseflow-crawler
+  
+  # H2 数据库配置
+  datasource:
+    url: jdbc:h2:file:./data/newsdb;AUTO_SERVER=TRUE
+    username: sa
+    password: password
+    driver-class-name: org.h2.Driver
+  
+  # JPA 配置
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+   # show-sql: true
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        connection:
+          characterEncoding: utf8
+          useUnicode: true
+          charSet: UTF-8
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        use_sql_comments: true
+  
+  # H2 控制台配置
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  # Thymeleaf配置
+  thymeleaf:
+    cache: false  # 开发环境关闭缓存
+    mode: HTML
+    encoding: UTF-8
+    prefix: classpath:/templates/
+    suffix: .html
+    servlet:
+      content-type: text/html
+
+  task:
+    scheduling:
+      pool:
+        size: 5
+      thread-name-prefix: scheduler-
+
+logging:
+  level:
+    root: INFO
+    com.wiseflow: DEBUG
+    com.wiseflow.service: DEBUG
+    com.wiseflow.core.crawler: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+  #  org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  file:
+    name: logs/wiseflow.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+article:
+  expire:
+    days: 10  # 文章过期天数
