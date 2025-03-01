@@ -46,6 +46,7 @@ public class CrawlerConfig {
         config.setParseRule(rule);
         return config;
     }
+    
 
     private CrawlConfig createVipcConfig() {
         CrawlConfig config = new CrawlConfig();
