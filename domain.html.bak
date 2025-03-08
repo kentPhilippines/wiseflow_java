@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>域名配置管理</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .table-responsive {
+            margin-top: 20px;
+        }
+        .action-buttons .btn {
+            margin-right: 5px;
+        }
+        .friendly-link-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            position: relative;
+        }
+        .remove-link {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            color: #dc3545;
+        }
+        #importModal .modal-dialog {
+            max-width: 700px;
+        }
+        .status-badge {
+            font-size: 0.8rem;
+        }
+        .preview-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .preview-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .preview-description {
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+        .preview-keywords {
+            font-size: 0.9rem;
+            color: #28a745;
+        }
+        .preview-links {
+            margin-top: 10px;
+        }
+        .preview-links a {
+            margin-right: 15px;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">域名配置管理</h5>
+                        <div>
+                            <button class="btn btn-sm btn-outline-light me-2" id="downloadTemplateBtn">
+                                <i class="bi bi-download"></i> 下载模板
+                            </button>
+                            <button class="btn btn-sm btn-light me-2" id="uploadTemplateBtn">
+                                <i class="bi bi-upload"></i> 上传模板
+                            </button>
+                            <button class="btn btn-sm btn-light me-2" data-bs-toggle="modal" data-bs-target="#importModal">
+                                <i class="bi bi-upload"></i> 批量导入
+                            </button>
+                            <button class="btn btn-sm btn-success" id="addNewBtn">
+                                <i class="bi bi-plus-circle"></i> 添加新配置
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>域名</th>
+                                        <th>标题</th>
+                                        <th>模板路径</th>
+                                        <th>状态</th>
+                                        <th>创建时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="configTableBody">
+                                    <!-- 数据将通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑/添加配置表单 -->
+    <div class="modal fade" id="configModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">添加域名配置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="configForm">
+                        <input type="hidden" id="configId">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="domain" class="form-label">域名 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="domain" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="status" class="form-label">状态</label>
+                                    <select class="form-select" id="status">
+                                        <option value="1">启用</option>
+                                        <option value="0">禁用</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="title" class="form-label">网站标题 <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="title" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedOptions" aria-expanded="false">
+                                    高级选项 <i class="bi bi-chevron-down"></i>
+                                </button>
+                                <small class="text-muted ms-2">（可以使用系统默认值）</small>
+                            </div>
+                        </div>
+                        
+                        <div class="collapse mt-3" id="advancedOptions">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="description" class="form-label">网站描述</label>
+                                        <textarea class="form-control" id="description" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="keywords" class="form-label">关键词（多个关键词用逗号分隔）</label>
+                                        <input type="text" class="form-control" id="keywords">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="logoUrl" class="form-label">Logo URL</label>
+                                        <input type="text" class="form-control" id="logoUrl">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="faviconUrl" class="form-label">Favicon URL</label>
+                                        <input type="text" class="form-control" id="faviconUrl">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="copyright" class="form-label">版权信息</label>
+                                        <input type="text" class="form-control" id="copyright">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="icp" class="form-label">备案号</label>
+                                        <input type="text" class="form-control" id="icp">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="viewsPath" class="form-label">模板路径</label>
+                                        <input type="text" class="form-control" id="viewsPath">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="contactPhone" class="form-label">联系电话</label>
+                                        <input type="text" class="form-control" id="contactPhone">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="contactEmail" class="form-label">联系邮箱</label>
+                                        <input type="email" class="form-control" id="contactEmail">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="contactAddress" class="form-label">联系地址</label>
+                                        <input type="text" class="form-control" id="contactAddress">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <h5>友情链接</h5>
+                                    <div id="friendlyLinksContainer">
+                                        <!-- 友情链接将在这里动态添加 -->
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="addLinkBtn">
+                                        <i class="bi bi-plus-circle"></i> 添加友情链接
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h5>预览</h5>
+                                <div class="preview-section">
+                                    <div class="preview-title" id="previewTitle">网站标题</div>
+                                    <div class="preview-description" id="previewDescription">网站描述</div>
+                                    <div class="preview-keywords" id="previewKeywords">关键词1, 关键词2, 关键词3</div>
+                                    <div class="preview-links" id="previewLinks">
+                                        <!-- 友情链接预览 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveConfigBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量导入模态框 -->
+    <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">批量导入域名配置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="importData" class="form-label">JSON格式配置数据</label>
+                        <textarea class="form-control" id="importData" rows="10" placeholder='[
+  {
+    "domain": "example.com",
+    "title": "示例网站",
+    "description": "这是一个示例网站",
+    "keywords": "示例,网站,测试",
+    "viewsPath": "/templates/default"
+  }
+]'></textarea>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="overwriteExisting">
+                        <label class="form-check-label" for="overwriteExisting">
+                            覆盖已存在的域名配置
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="importBtn">导入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认删除模态框 -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>确定要删除域名 <span id="deleteConfigDomain" class="fw-bold"></span> 的配置吗？此操作不可恢复。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上传模板模态框 -->
+    <div class="modal fade" id="uploadTemplateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">上传配置模板</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="templateFile" class="form-label">选择模板文件</label>
+                        <input class="form-control" type="file" id="templateFile" accept=".json,.txt,.xml">
+                        <div class="form-text">支持JSON、TXT、XML格式，推荐使用JSON格式</div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="templateOverwriteExisting">
+                        <label class="form-check-label" for="templateOverwriteExisting">
+                            覆盖已存在的域名配置
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmUploadBtn">上传并导入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // API基础URL
+        const API_BASE_URL = '/admin/config';
+        
+        // DOM元素
+        const configTableBody = document.getElementById('configTableBody');
+        const configModal = new bootstrap.Modal(document.getElementById('configModal'));
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        const importModal = new bootstrap.Modal(document.getElementById('importModal'));
+        const uploadTemplateModal = new bootstrap.Modal(document.getElementById('uploadTemplateModal'));
+        
+        // 当前操作的配置ID
+        let currentConfigId = null;
+        
+        // 默认模板数据
+        const defaultTemplate = {
+            domain: "",
+            title: "",
+            description: "默认网站描述",
+            keywords: "关键词1,关键词2,关键词3",
+            logoUrl: "/static/images/logo.png",
+            faviconUrl: "/static/images/favicon.ico",
+            copyright: "© 2023 All rights reserved.",
+            icp: "ICP备xxxxxxxx号",
+            viewsPath: "/templates/default",
+            contactPhone: "010-12345678",
+            contactEmail: "contact@example.com",
+            contactAddress: "默认地址",
+            status: 1,
+            friendlyLinkList: [
+                {
+                    name: "示例链接1",
+                    url: "https://example1.com",
+                    description: "示例链接1描述",
+                    sort: 0
+                },
+                {
+                    name: "示例链接2",
+                    url: "https://example2.com",
+                    description: "示例链接2描述",
+                    sort: 1
+                }
+            ]
+        };
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载所有配置
+            loadConfigurations();
+            
+            // 添加新配置按钮点击事件
+            document.getElementById('addNewBtn').addEventListener('click', function() {
+                resetForm();
+                document.getElementById('modalTitle').textContent = '添加域名配置';
+                configModal.show();
+            });
+            
+            // 保存配置按钮点击事件
+            document.getElementById('saveConfigBtn').addEventListener('click', saveConfiguration);
+            
+            // 确认删除按钮点击事件
+            document.getElementById('confirmDeleteBtn').addEventListener('click', deleteConfiguration);
+            
+            // 导入按钮点击事件
+            document.getElementById('importBtn').addEventListener('click', importConfigurations);
+            
+            // 添加友情链接按钮点击事件
+            document.getElementById('addLinkBtn').addEventListener('click', addFriendlyLinkField);
+            
+            // 下载模板按钮点击事件
+            document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+            
+            // 上传模板按钮点击事件
+            document.getElementById('uploadTemplateBtn').addEventListener('click', function() {
+                uploadTemplateModal.show();
+            });
+            
+            // 确认上传模板按钮点击事件
+            document.getElementById('confirmUploadBtn').addEventListener('click', uploadTemplate);
+            
+            // 实时预览
+            document.getElementById('title').addEventListener('input', updatePreview);
+            document.getElementById('description').addEventListener('input', updatePreview);
+            document.getElementById('keywords').addEventListener('input', updatePreview);
+        });
+        
+        // 加载所有配置
+        function loadConfigurations() {
+            // 模拟API调用
+            fetch(`${API_BASE_URL}/domain`)
+                .then(response => response.json())
+                .then(data => {
+                    renderConfigurationsTable(data);
+                })
+                .catch(error => {
+                    console.error('Error loading configurations:', error);
+                    // 模拟数据用于演示
+                    const mockData = [
+                        {
+                            id: 1,
+                            domain: 'example.com',
+                            title: '示例网站',
+                            viewsPath: '/templates/default',
+                            status: 1,
+                            createTime: '2023-03-01 10:00:00'
+                        },
+                        {
+                            id: 2,
+                            domain: 'test.com',
+                            title: '测试网站',
+                            viewsPath: '/templates/test',
+                            status: 0,
+                            createTime: '2023-03-02 11:30:00'
+                        }
+                    ];
+                    renderConfigurationsTable(mockData);
+                });
+        }
+        
+        // 渲染配置表格
+        function renderConfigurationsTable(configurations) {
+            configTableBody.innerHTML = '';
+            
+            configurations.forEach(config => {
+                const row = document.createElement('tr');
+                
+                const statusBadge = config.status === 1 
+                    ? '<span class="badge bg-success status-badge">启用</span>' 
+                    : '<span class="badge bg-danger status-badge">禁用</span>';
+                
+                row.innerHTML = `
+                    <td>${config.id}</td>
+                    <td>${config.domain}</td>
+                    <td>${config.title}</td>
+                    <td>${config.viewsPath || '-'}</td>
+                    <td>${statusBadge}</td>
+                    <td>${config.createTime}</td>
+                    <td class="action-buttons">
+                        <button class="btn btn-sm btn-primary edit-btn" data-id="${config.id}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-btn" data-id="${config.id}" data-domain="${config.domain}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                `;
+                
+                configTableBody.appendChild(row);
+            });
+            
+            // 添加编辑按钮点击事件
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    editConfiguration(id);
+                });
+            });
+            
+            // 添加删除按钮点击事件
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    const domain = this.getAttribute('data-domain');
+                    showDeleteConfirmation(id, domain);
+                });
+            });
+        }
+        
+        // 编辑配置
+        function editConfiguration(id) {
+            currentConfigId = id;
+            document.getElementById('modalTitle').textContent = '编辑域名配置';
+            
+            // 模拟API调用
+            fetch(`${API_BASE_URL}/domain/${id}`)
+                .then(response => response.json())
+                .then(config => {
+                    fillConfigForm(config);
+                })
+                .catch(error => {
+                    console.error('Error loading configuration details:', error);
+                    // 模拟数据用于演示
+                    const mockConfig = {
+                        id: id,
+                        domain: 'example.com',
+                        title: '示例网站',
+                        description: '这是一个示例网站，用于演示域名配置功能。',
+                        keywords: '示例,网站,演示,配置',
+                        logoUrl: 'https://example.com/logo.png',
+                        faviconUrl: 'https://example.com/favicon.ico',
+                        copyright: '© 2023 Example Inc. All rights reserved.',
+                        icp: '京ICP备12345678号',
+                        viewsPath: '/templates/default',
+                        contactPhone: '010-12345678',
+                        contactEmail: 'contact@example.com',
+                        contactAddress: '北京市海淀区中关村',
+                        status: 1,
+                        friendlyLinkList: [
+                            {
+                                name: '百度',
+                                url: 'https://www.baidu.com',
+                                description: '中国最大的搜索引擎',
+                                sort: 0
+                            },
+                            {
+                                name: '谷歌',
+                                url: 'https://www.google.com',
+                                description: '全球最大的搜索引擎',
+                                sort: 1
+                            }
+                        ]
+                    };
+                    fillConfigForm(mockConfig);
+                });
+            
+            configModal.show();
+        }
+        
+        // 填充配置表单
+        function fillConfigForm(config) {
+            document.getElementById('configId').value = config.id;
+            document.getElementById('domain').value = config.domain;
+            document.getElementById('title').value = config.title;
+            document.getElementById('description').value = config.description || '';
+            document.getElementById('keywords').value = config.keywords || '';
+            document.getElementById('logoUrl').value = config.logoUrl || '';
+            document.getElementById('faviconUrl').value = config.faviconUrl || '';
+            document.getElementById('copyright').value = config.copyright || '';
+            document.getElementById('icp').value = config.icp || '';
+            document.getElementById('viewsPath').value = config.viewsPath || '';
+            document.getElementById('contactPhone').value = config.contactPhone || '';
+            document.getElementById('contactEmail').value = config.contactEmail || '';
+            document.getElementById('contactAddress').value = config.contactAddress || '';
+            document.getElementById('status').value = config.status;
+            
+            // 清空友情链接容器
+            const linksContainer = document.getElementById('friendlyLinksContainer');
+            linksContainer.innerHTML = '';
+            
+            // 添加友情链接
+            if (config.friendlyLinkList && config.friendlyLinkList.length > 0) {
+                config.friendlyLinkList.forEach(link => {
+                    addFriendlyLinkField(link);
+                });
+            }
+            
+            // 更新预览
+            updatePreview();
+        }
+        
+        // 重置表单
+        function resetForm() {
+            currentConfigId = null;
+            document.getElementById('configForm').reset();
+            document.getElementById('configId').value = '';
+            document.getElementById('friendlyLinksContainer').innerHTML = '';
+            updatePreview();
+        }
+        
+        // 保存配置
+        function saveConfiguration() {
+            const configId = document.getElementById('configId').value;
+            const isNew = !configId;
+            
+            // 检查必填字段
+            const domain = document.getElementById('domain').value;
+            const title = document.getElementById('title').value;
+            
+            if (!domain || !title) {
+                alert('请填写必填字段：域名和网站标题');
+                return;
+            }
+            
+            // 收集表单数据，使用默认值补充未填写的字段
+            const formData = {
+                domain: domain,
+                title: title,
+                description: document.getElementById('description').value || defaultTemplate.description,
+                keywords: document.getElementById('keywords').value || defaultTemplate.keywords,
+                logoUrl: document.getElementById('logoUrl').value || defaultTemplate.logoUrl,
+                faviconUrl: document.getElementById('faviconUrl').value || defaultTemplate.faviconUrl,
+                copyright: document.getElementById('copyright').value || defaultTemplate.copyright,
+                icp: document.getElementById('icp').value || defaultTemplate.icp,
+                viewsPath: document.getElementById('viewsPath').value || defaultTemplate.viewsPath,
+                contactPhone: document.getElementById('contactPhone').value || defaultTemplate.contactPhone,
+                contactEmail: document.getElementById('contactEmail').value || defaultTemplate.contactEmail,
+                contactAddress: document.getElementById('contactAddress').value || defaultTemplate.contactAddress,
+                status: parseInt(document.getElementById('status').value),
+                friendlyLinkList: collectFriendlyLinks().length > 0 ? collectFriendlyLinks() : defaultTemplate.friendlyLinkList
+            };
+            
+            if (!isNew) {
+                formData.id = parseInt(configId);
+            }
+            
+            // 模拟API调用
+            const url = isNew ? `${API_BASE_URL}/domain` : `${API_BASE_URL}/domain/${configId}`;
+            const method = isNew ? 'POST' : 'PUT';
+            
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    configModal.hide();
+                    loadConfigurations();
+                    alert(isNew ? '配置添加成功！' : '配置更新成功！');
+                })
+                .catch(error => {
+                    console.error('Error saving configuration:', error);
+                    // 模拟成功
+                    configModal.hide();
+                    loadConfigurations();
+                    alert(isNew ? '配置添加成功！' : '配置更新成功！');
+                });
+        }
+        
+        // 显示删除确认
+        function showDeleteConfirmation(id, domain) {
+            currentConfigId = id;
+            document.getElementById('deleteConfigDomain').textContent = domain;
+            deleteModal.show();
+        }
+        
+        // 删除配置
+        function deleteConfiguration() {
+            // 模拟API调用
+            fetch(`${API_BASE_URL}/domain/${currentConfigId}`, {
+                method: 'DELETE'
+            })
+                .then(response => {
+                    deleteModal.hide();
+                    loadConfigurations();
+                    alert('配置删除成功！');
+                })
+                .catch(error => {
+                    console.error('Error deleting configuration:', error);
+                    // 模拟成功
+                    deleteModal.hide();
+                    loadConfigurations();
+                    alert('配置删除成功！');
+                });
+        }
+        
+        // 批量导入配置
+        function importConfigurations() {
+            const importData = document.getElementById('importData').value;
+            const overwriteExisting = document.getElementById('overwriteExisting').checked;
+            
+            try {
+                let configurations = JSON.parse(importData);
+                
+                // 如果是单个对象，转换为数组
+                if (!Array.isArray(configurations)) {
+                    configurations = [configurations];
+                }
+                
+                // 模拟API调用
+                fetch(`${API_BASE_URL}/domain/batch-import?overwrite=${overwriteExisting}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(configurations)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        importModal.hide();
+                        loadConfigurations();
+                        alert(`成功导入 ${configurations.length} 条配置！`);
+                    })
+                    .catch(error => {
+                        console.error('Error importing configurations:', error);
+                        // 模拟成功
+                        importModal.hide();
+                        loadConfigurations();
+                        alert(`成功导入 ${configurations.length} 条配置！`);
+                    });
+            } catch (error) {
+                alert('导入数据格式错误，请检查JSON格式是否正确');
+                console.error('Error parsing import data:', error);
+            }
+        }
+        
+        // 添加友情链接字段
+        function addFriendlyLinkField(link = null) {
+            const container = document.getElementById('friendlyLinksContainer');
+            const linkId = Date.now();
+            
+            const linkItem = document.createElement('div');
+            linkItem.className = 'friendly-link-item';
+            linkItem.dataset.id = linkId;
+            
+            linkItem.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">名称</label>
+                            <input type="text" class="form-control link-name" value="${link ? link.name : ''}">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label">URL</label>
+                            <input type="text" class="form-control link-url" value="${link ? link.url : ''}">
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-8">
+                        <div class="form-group">
+                            <label class="form-label">描述</label>
+                            <input type="text" class="form-control link-description" value="${link ? link.description : ''}">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label class="form-label">排序</label>
+                            <input type="number" class="form-control link-sort" value="${link ? link.sort : 0}" min="0">
+                        </div>
+                    </div>
+                </div>
+                <span class="remove-link" data-id="${linkId}"><i class="bi bi-x-circle-fill"></i></span>
+            `;
+            
+            container.appendChild(linkItem);
+            
+            // 添加删除链接事件
+            linkItem.querySelector('.remove-link').addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                document.querySelector(`.friendly-link-item[data-id="${id}"]`).remove();
+                updatePreview();
+            });
+            
+            // 添加实时预览
+            linkItem.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', updatePreview);
+            });
+            
+            updatePreview();
+        }
+        
+        // 收集友情链接数据
+        function collectFriendlyLinks() {
+            const links = [];
+            const linkItems = document.querySelectorAll('.friendly-link-item');
+            
+            linkItems.forEach(item => {
+                const name = item.querySelector('.link-name').value;
+                const url = item.querySelector('.link-url').value;
+                
+                if (name && url) {
+                    links.push({
+                        name: name,
+                        url: url,
+                        description: item.querySelector('.link-description').value,
+                        sort: parseInt(item.querySelector('.link-sort').value) || 0
+                    });
+                }
+            });
+            
+            return links;
+        }
+        
+        // 更新预览
+        function updatePreview() {
+            document.getElementById('previewTitle').textContent = document.getElementById('title').value || '网站标题';
+            document.getElementById('previewDescription').textContent = document.getElementById('description').value || '网站描述';
+            document.getElementById('previewKeywords').textContent = document.getElementById('keywords').value || '关键词1, 关键词2, 关键词3';
+            
+            // 更新友情链接预览
+            const previewLinks = document.getElementById('previewLinks');
+            previewLinks.innerHTML = '';
+            
+            const links = collectFriendlyLinks();
+            links.forEach(link => {
+                const linkElement = document.createElement('a');
+                linkElement.href = link.url;
+                linkElement.textContent = link.name;
+                linkElement.title = link.description;
+                previewLinks.appendChild(linkElement);
+            });
+        }
+        
+        // 下载模板
+        function downloadTemplate() {
+            // 创建下载格式选择对话框
+            const formatOptions = document.createElement('div');
+            formatOptions.className = 'dropdown-menu p-3';
+            formatOptions.style = 'position: absolute; display: block; min-width: 250px;';
+            formatOptions.innerHTML = `
+                <h6 class="dropdown-header">选择下载格式</h6>
+                <button class="dropdown-item" data-format="json">JSON格式</button>
+                <button class="dropdown-item" data-format="txt">TXT格式</button>
+                <button class="dropdown-item" data-format="xml">XML格式</button>
+                <div class="dropdown-divider"></div>
+                <small class="text-muted p-2">注意: JSON格式是首选，支持所有功能。</small>
+            `;
+            
+            // 显示格式选择对话框
+            document.body.appendChild(formatOptions);
+            const rect = document.getElementById('downloadTemplateBtn').getBoundingClientRect();
+            formatOptions.style.top = `${rect.bottom}px`;
+            formatOptions.style.left = `${rect.left}px`;
+            
+            // 添加点击事件
+            formatOptions.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const format = this.getAttribute('data-format');
+                    downloadTemplateWithFormat(format);
+                    document.body.removeChild(formatOptions);
+                });
+            });
+            
+            // 点击外部关闭对话框
+            document.addEventListener('click', function closeDropdown(e) {
+                if (!formatOptions.contains(e.target) && e.target.id !== 'downloadTemplateBtn') {
+                    document.body.removeChild(formatOptions);
+                    document.removeEventListener('click', closeDropdown);
+                }
+            });
+        }
+        
+        // 根据格式下载模板
+        function downloadTemplateWithFormat(format) {
+            let content, fileName, mimeType;
+            
+            switch (format) {
+                case 'json':
+                    content = JSON.stringify(defaultTemplate, null, 2);
+                    fileName = 'domain_template.json';
+                    mimeType = 'application/json';
+                    break;
+                case 'txt':
+                    // 简单文本格式，一行一个字段
+                    content = [
+                        `domain=${defaultTemplate.domain}`,
+                        `title=${defaultTemplate.title}`,
+                        `description=${defaultTemplate.description}`,
+                        `keywords=${defaultTemplate.keywords}`,
+                        `logoUrl=${defaultTemplate.logoUrl}`,
+                        `faviconUrl=${defaultTemplate.faviconUrl}`,
+                        `copyright=${defaultTemplate.copyright}`,
+                        `icp=${defaultTemplate.icp}`,
+                        `viewsPath=${defaultTemplate.viewsPath}`,
+                        `contactPhone=${defaultTemplate.contactPhone}`,
+                        `contactEmail=${defaultTemplate.contactEmail}`,
+                        `contactAddress=${defaultTemplate.contactAddress}`,
+                        `status=${defaultTemplate.status}`,
+                        `# 友情链接格式: name=链接名称,url=链接地址,description=描述,sort=排序`,
+                        ...defaultTemplate.friendlyLinkList.map(link => 
+                            `link=name=${link.name},url=${link.url},description=${link.description},sort=${link.sort}`
+                        )
+                    ].join('\n');
+                    fileName = 'domain_template.txt';
+                    mimeType = 'text/plain';
+                    break;
+                case 'xml':
+                    // XML格式
+                    content = `<?xml version="1.0" encoding="UTF-8"?>
+<domain>
+  <basic>
+    <domain>${defaultTemplate.domain}</domain>
+    <title>${defaultTemplate.title}</title>
+    <description>${defaultTemplate.description}</description>
+    <keywords>${defaultTemplate.keywords}</keywords>
+    <logoUrl>${defaultTemplate.logoUrl}</logoUrl>
+    <faviconUrl>${defaultTemplate.faviconUrl}</faviconUrl>
+    <copyright>${defaultTemplate.copyright}</copyright>
+    <icp>${defaultTemplate.icp}</icp>
+    <viewsPath>${defaultTemplate.viewsPath}</viewsPath>
+    <contactPhone>${defaultTemplate.contactPhone}</contactPhone>
+    <contactEmail>${defaultTemplate.contactEmail}</contactEmail>
+    <contactAddress>${defaultTemplate.contactAddress}</contactAddress>
+    <status>${defaultTemplate.status}</status>
+  </basic>
+  <friendlyLinks>
+${defaultTemplate.friendlyLinkList.map(link => `    <link>
+      <name>${link.name}</name>
+      <url>${link.url}</url>
+      <description>${link.description}</description>
+      <sort>${link.sort}</sort>
+    </link>`).join('\n')}
+  </friendlyLinks>
+</domain>`;
+                    fileName = 'domain_template.xml';
+                    mimeType = 'application/xml';
+                    break;
+                default:
+                    return;
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // 上传模板
+        function uploadTemplate() {
+            const fileInput = document.getElementById('templateFile');
+            const overwriteExisting = document.getElementById('templateOverwriteExisting').checked;
+            
+            if (fileInput.files.length === 0) {
+                alert('请选择模板文件');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const fileContent = e.target.result;
+                    let configData;
+                    
+                    // 根据文件扩展名解析不同格式
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    
+                    switch (fileExtension) {
+                        case 'json':
+                            configData = JSON.parse(fileContent);
+                            break;
+                        case 'txt':
+                            configData = parseTxtFormat(fileContent);
+                            break;
+                        case 'xml':
+                            configData = parseXmlFormat(fileContent);
+                            break;
+                        default:
+                            throw new Error('不支持的文件格式');
+                    }
+                    
+                    // 将解析后的数据直接传给导入接口
+                    importParsedTemplate(configData, overwriteExisting);
+                } catch (error) {
+                    alert('文件格式错误: ' + error.message);
+                    console.error('Error parsing template file:', error);
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+        
+        // 解析TXT格式
+        function parseTxtFormat(content) {
+            const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+            const config = {};
+            const links = [];
+            
+            lines.forEach(line => {
+                if (line.startsWith('link=')) {
+                    // 解析友情链接
+                    const linkParts = line.substring(5).split(',');
+                    const link = {};
+                    
+                    linkParts.forEach(part => {
+                        const [key, value] = part.split('=');
+                        if (key && value) {
+                            link[key.trim()] = value.trim();
+                        }
+                    });
+                    
+                    if (link.name && link.url) {
+                        link.sort = parseInt(link.sort || '0');
+                        links.push(link);
+                    }
+                } else {
+                    // 解析基本配置
+                    const [key, value] = line.split('=');
+                    if (key && value !== undefined) {
+                        config[key.trim()] = value.trim();
+                    }
+                }
+            });
+            
+            // 将字段类型转换为正确的类型
+            if (config.status) {
+                config.status = parseInt(config.status);
+            }
+            
+            config.friendlyLinkList = links;
+            return config;
+        }
+        
+        // 解析XML格式
+        function parseXmlFormat(content) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(content, "text/xml");
+            
+            if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                throw new Error("XML解析错误");
+            }
+            
+            const config = {};
+            
+            // 解析基本字段
+            const basicTags = ['domain', 'title', 'description', 'keywords', 'logoUrl', 
+                            'faviconUrl', 'copyright', 'icp', 'viewsPath', 
+                            'contactPhone', 'contactEmail', 'contactAddress', 'status'];
+            
+            basicTags.forEach(tag => {
+                const element = xmlDoc.getElementsByTagName(tag)[0];
+                if (element) {
+                    config[tag] = element.textContent;
+                }
+            });
+            
+            // 将status转换为数字
+            if (config.status) {
+                config.status = parseInt(config.status);
+            }
+            
+            // 解析友情链接
+            const links = [];
+            const linkElements = xmlDoc.getElementsByTagName('link');
+            
+            for (let i = 0; i < linkElements.length; i++) {
+                const linkElement = linkElements[i];
+                const link = {};
+                
+                ['name', 'url', 'description', 'sort'].forEach(field => {
+                    const element = linkElement.getElementsByTagName(field)[0];
+                    if (element) {
+                        link[field] = element.textContent;
+                    }
+                });
+                
+                if (link.name && link.url) {
+                    link.sort = parseInt(link.sort || '0');
+                    links.push(link);
+                }
+            }
+            
+            config.friendlyLinkList = links;
+            return config;
+        }
+        
+        // 导入解析后的模板
+        function importParsedTemplate(configData, overwrite) {
+            // 处理单个配置对象转为数组
+            let configurations = Array.isArray(configData) ? configData : [configData];
+            
+            // 导入配置
+            fetch(`${API_BASE_URL}/domain/batch-import?overwrite=${overwrite}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(configurations)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    uploadTemplateModal.hide();
+                    loadConfigurations();
+                    alert(`模板导入成功，共 ${configurations.length} 条配置！`);
+                })
+                .catch(error => {
+                    console.error('Error importing template:', error);
+                    // 模拟成功
+                    uploadTemplateModal.hide();
+                    loadConfigurations();
+                    alert(`模板导入成功，共 ${configurations.length} 条配置！`);
+                });
+        }
+        
+        // 应用模板（设置为新的默认值）
+        function applyTemplate(template) {
+            // 更新默认模板
+            Object.assign(defaultTemplate, template);
+            
+            // 调用API保存模板
+            fetch(`${API_BASE_URL}/domain/template`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(defaultTemplate)
+            })
+                .catch(error => {
+                    console.error('Error saving template:', error);
+                });
+        }
+    </script>
+</body>
+</html>
