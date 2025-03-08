@@ -1,28 +1,54 @@
 package com.wiseflow.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
-import javax.persistence.*;
+
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Data
-@Entity
-@Table(name = "categories")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@TableName("wf_category")
 public class Category {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false, unique = true)
+    
+    @TableId(value = "id", type = IdType.AUTO)
+    private Integer id;
+    
     private String name;
-
-    @Column(length = 500)
+    
+    private String code;
+    
+    private String url;
+    
+    @TableField(exist = false)
+    private Category parent;
+    
+    private Integer parentId;
+    
+    @TableField(exist = false)
+    private List<Category> children = new ArrayList<>();
+    
+    private Integer level = 1;
+    
+    private Integer sort = 0;
+    
     private String description;
-
-    @JsonIgnore
-    @OneToMany(mappedBy = "category")
-    private List<Article> articles = new ArrayList<>();
+    
+    private Integer status = 1;
+    
+    @TableField(fill = FieldFill.INSERT)
+    private LocalDateTime createTime;
+    
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updateTime;
+    
+    @TableField(exist = false)
+    private List<News> news = new ArrayList<>();
+    
+    // 添加子分类的便捷方法
+    public void addChild(Category child) {
+        children.add(child);
+        child.setParent(this);
+        child.setLevel(this.level + 1);
+    }
 } 

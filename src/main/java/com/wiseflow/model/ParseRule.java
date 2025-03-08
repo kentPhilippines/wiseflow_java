@@ -2,16 +2,34 @@ package com.wiseflow.model;
 
 import lombok.Data;
 
+/**
+ * 网页解析规则
+ */
 @Data
 public class ParseRule {
-    private String titleSelector;
-    private String contentSelector;
-    private String authorSelector;
-    private String dateSelector;
-    private String imageSelector;
-    private String summarySelector;
-    private String urlPattern;
-    private String articleLinkSelector;
+    
+    /**
+     * 分类名称
+     */
     private String categoryName;
-    private String categorySelector;
+    
+    /**
+     * 标题选择器
+     */
+    private String titleSelector = "h1.post_title";
+    
+    /**
+     * 内容选择器
+     */
+    private String contentSelector = "div.post_body";
+    
+    /**
+     * 作者选择器
+     */
+    private String authorSelector = "div.post_author";
+    
+    /**
+     * 图片选择器
+     */
+    private String imageSelector = "div.post_body img";
 } 
