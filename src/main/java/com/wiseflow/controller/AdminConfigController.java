@@ -100,4 +100,43 @@ public class AdminConfigController {
         domainConfigService.toggleStatus(id, enabled);
         return ResponseEntity.ok().build();
     }
+    
+    /**
+     * 批量导入域名配置
+     * 将数组数据转换为一条SQL插入数据库
+     * 清除域名配置缓存
+     */
+    @PostMapping("/domain/batch-import")
+    @CacheEvict(value = CacheConfig.CACHE_DOMAIN_CONFIG, allEntries = true)
+    public ResponseEntity<Map<String, Object>> batchImportDomainConfigs(
+            @RequestBody List<DomainConfig> domainConfigs,
+            @RequestParam(defaultValue = "false") boolean overwrite) {
+        
+        log.info("批量导入域名配置: count={}, overwrite={}", domainConfigs.size(), overwrite);
+        
+        int importedCount = domainConfigService.batchImport(domainConfigs, overwrite);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("code", 200);
+        response.put("message", "成功导入 " + importedCount + " 条配置");
+        response.put("importedCount", importedCount);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 保存域名配置模板
+     */
+    @PostMapping("/domain/template")
+    public ResponseEntity<Map<String, Object>> saveTemplate(@RequestBody DomainConfig template) {
+        log.info("保存域名配置模板");
+        
+        domainConfigService.saveTemplate(template);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("code", 200);
+        response.put("message", "模板保存成功");
+        
+        return ResponseEntity.ok(response);
+    }
 } 

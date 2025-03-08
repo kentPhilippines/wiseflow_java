@@ -10,11 +10,17 @@ import com.wiseflow.service.DomainConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.stream.Collectors;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.Set;
 
 /**
  * 域名配置服务实现类
@@ -27,6 +33,14 @@ public class DomainConfigServiceImpl implements DomainConfigService {
     
     private final DomainConfigMapper domainConfigMapper;
     private final ObjectMapper objectMapper;
+    private final JdbcTemplate jdbcTemplate;
+    
+    // 保存的模板配置
+    private static DomainConfig templateConfig;
+    
+    // 默认模板路径
+    @Value("${app.default-template-path:/templates/default}")
+    private String defaultTemplatePath;
     
     @Override
     public DomainConfig save(DomainConfig domainConfig) {
@@ -136,5 +150,104 @@ public class DomainConfigServiceImpl implements DomainConfigService {
         } else {
             domainConfig.setFriendlyLinkList(new ArrayList<>());
         }
+    }
+    
+    @Override
+    @Transactional
+    public int batchImport(List<DomainConfig> domainConfigs, boolean overwrite) {
+        if (domainConfigs == null || domainConfigs.isEmpty()) {
+            return 0;
+        }
+        
+        int importedCount = 0;
+        
+        // 优化：使用IN查询一次性获取所有已存在的域名
+        List<String> domains = domainConfigs.stream()
+                .map(DomainConfig::getDomain)
+                .collect(Collectors.toList());
+        
+        // 查找所有已存在的域名
+        LambdaQueryWrapper<DomainConfig> existingDomainsQuery = new LambdaQueryWrapper<>();
+        existingDomainsQuery.in(DomainConfig::getDomain, domains);
+        List<DomainConfig> existingConfigs = domainConfigMapper.selectList(existingDomainsQuery);
+        
+        // 提取已存在的域名集合，用于快速查找
+        Set<String> existingDomains = existingConfigs.stream()
+                .map(DomainConfig::getDomain)
+                .collect(Collectors.toSet());
+        
+        // 处理每个导入的配置
+        List<DomainConfig> configsToInsert = new ArrayList<>();
+        
+        for (DomainConfig config : domainConfigs) {
+            // 处理友情链接, 转为JSON字符串
+            try {
+                if (config.getFriendlyLinkList() != null && !config.getFriendlyLinkList().isEmpty()) {
+                    config.setFriendlyLinks(objectMapper.writeValueAsString(config.getFriendlyLinkList()));
+                }
+            } catch (JsonProcessingException e) {
+                log.error("处理友情链接时发生错误: {}", e.getMessage(), e);
+                config.setFriendlyLinks("[]");
+            }
+            
+            // 补充缺失的字段
+            if (config.getStatus() == null) {
+                config.setStatus(1); // 默认启用
+            }
+            if (config.getViewsPath() == null || config.getViewsPath().isEmpty()) {
+                config.setViewsPath(defaultTemplatePath);
+            }
+            
+            boolean exists = existingDomains.contains(config.getDomain());
+            
+            if (!exists || overwrite) {
+                configsToInsert.add(config);
+                importedCount++;
+            }
+        }
+        
+        if (configsToInsert.isEmpty()) {
+            return 0;
+        }
+        
+        // 如果覆盖，先删除已存在的记录
+        if (overwrite) {
+            List<String> domainsToOverwrite = configsToInsert.stream()
+                    .map(DomainConfig::getDomain)
+                    .filter(existingDomains::contains)
+                    .collect(Collectors.toList());
+            
+            if (!domainsToOverwrite.isEmpty()) {
+                LambdaQueryWrapper<DomainConfig> deleteWrapper = new LambdaQueryWrapper<>();
+                deleteWrapper.in(DomainConfig::getDomain, domainsToOverwrite);
+                domainConfigMapper.delete(deleteWrapper);
+            }
+        }
+        
+        // 批量插入
+        for (DomainConfig config : configsToInsert) {
+            // 清除ID，确保新增
+            config.setId(null);
+            // 设置创建时间和更新时间
+            LocalDateTime now = LocalDateTime.now();
+            config.setCreateTime(now);
+            config.setUpdateTime(now);
+            // 插入记录
+            domainConfigMapper.insert(config);
+        }
+        
+        return importedCount;
+    }
+    
+    @Override
+    public void saveTemplate(DomainConfig template) {
+        // 简单实现: 保存到静态变量
+        // 实际生产中应该保存到数据库或配置文件
+        templateConfig = template;
+    }
+    
+    // 获取当前模板
+    public static DomainConfig getTemplate() {
+        return templateConfig;
     }
 } 

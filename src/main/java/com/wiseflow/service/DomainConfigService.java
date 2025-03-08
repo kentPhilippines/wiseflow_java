@@ -50,4 +50,17 @@ public interface DomainConfigService {
      * 启用/禁用域名配置
      */
     void toggleStatus(Integer id, boolean enabled);
+    
+    /**
+     * 批量导入域名配置
+     * @param domainConfigs 域名配置列表
+     * @param overwrite 是否覆盖已存在的配置
+     * @return 导入成功的数量
+     */
+    int batchImport(List<DomainConfig> domainConfigs, boolean overwrite);
+    
+    /**
+     * 保存域名配置模板
+     */
+    void saveTemplate(DomainConfig template);
 } 

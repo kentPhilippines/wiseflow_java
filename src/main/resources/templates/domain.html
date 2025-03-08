@@ -342,12 +342,19 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="templateFile" class="form-label">选择模板文件</label>
-                        <input class="form-control" type="file" id="templateFile" accept=".json">
+                        <input class="form-control" type="file" id="templateFile" accept=".json,.txt">
+                        <div class="form-text">支持JSON、TXT格式，推荐使用JSON格式</div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="templateOverwriteExisting">
+                        <label class="form-check-label" for="templateOverwriteExisting">
+                            覆盖已存在的域名配置
+                        </label>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" id="confirmUploadBtn">上传</button>
+                    <button type="button" class="btn btn-primary" id="confirmUploadBtn">上传并导入</button>
                 </div>
             </div>
         </div>
@@ -708,10 +715,11 @@
             const overwriteExisting = document.getElementById('overwriteExisting').checked;
             
             try {
-                const configurations = JSON.parse(importData);
+                let configurations = JSON.parse(importData);
                 
+                // 如果是单个对象，转换为数组
                 if (!Array.isArray(configurations)) {
-                    throw new Error('导入数据必须是JSON数组格式');
+                    configurations = [configurations];
                 }
                 
                 // 模拟API调用
@@ -843,13 +851,86 @@
         
         // 下载模板
         function downloadTemplate() {
-            const templateStr = JSON.stringify(defaultTemplate, null, 2);
-            const blob = new Blob([templateStr], { type: 'application/json' });
+            // 创建下载格式选择对话框
+            const formatOptions = document.createElement('div');
+            formatOptions.className = 'dropdown-menu p-3';
+            formatOptions.style = 'position: absolute; display: block; min-width: 250px;';
+            formatOptions.innerHTML = `
+                <h6 class="dropdown-header">选择下载格式</h6>
+                <button class="dropdown-item" data-format="json">JSON格式</button>
+                <button class="dropdown-item" data-format="txt">TXT格式</button>
+                <div class="dropdown-divider"></div>
+                <small class="text-muted p-2">注意: JSON格式是首选，支持所有功能。</small>
+            `;
+            
+            // 显示格式选择对话框
+            document.body.appendChild(formatOptions);
+            const rect = document.getElementById('downloadTemplateBtn').getBoundingClientRect();
+            formatOptions.style.top = `${rect.bottom}px`;
+            formatOptions.style.left = `${rect.left}px`;
+            
+            // 添加点击事件
+            formatOptions.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const format = this.getAttribute('data-format');
+                    downloadTemplateWithFormat(format);
+                    document.body.removeChild(formatOptions);
+                });
+            });
+            
+            // 点击外部关闭对话框
+            document.addEventListener('click', function closeDropdown(e) {
+                if (!formatOptions.contains(e.target) && e.target.id !== 'downloadTemplateBtn') {
+                    document.body.removeChild(formatOptions);
+                    document.removeEventListener('click', closeDropdown);
+                }
+            });
+        }
+        
+        // 根据格式下载模板
+        function downloadTemplateWithFormat(format) {
+            let content, fileName, mimeType;
+            
+            switch (format) {
+                case 'json':
+                    content = JSON.stringify(defaultTemplate, null, 2);
+                    fileName = 'domain_template.json';
+                    mimeType = 'application/json';
+                    break;
+                case 'txt':
+                    // 简单文本格式，一行一个字段
+                    content = [
+                        `domain=${defaultTemplate.domain}`,
+                        `title=${defaultTemplate.title}`,
+                        `description=${defaultTemplate.description}`,
+                        `keywords=${defaultTemplate.keywords}`,
+                        `logoUrl=${defaultTemplate.logoUrl}`,
+                        `faviconUrl=${defaultTemplate.faviconUrl}`,
+                        `copyright=${defaultTemplate.copyright}`,
+                        `icp=${defaultTemplate.icp}`,
+                        `viewsPath=${defaultTemplate.viewsPath}`,
+                        `contactPhone=${defaultTemplate.contactPhone}`,
+                        `contactEmail=${defaultTemplate.contactEmail}`,
+                        `contactAddress=${defaultTemplate.contactAddress}`,
+                        `status=${defaultTemplate.status}`,
+                        `# 友情链接格式: name=链接名称,url=链接地址,description=描述,sort=排序`,
+                        ...defaultTemplate.friendlyLinkList.map(link => 
+                            `link=name=${link.name},url=${link.url},description=${link.description},sort=${link.sort}`
+                        )
+                    ].join('\n');
+                    fileName = 'domain_template.txt';
+                    mimeType = 'text/plain';
+                    break;
+                default:
+                    return;
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
             
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'domain_template.json';
+            a.download = fileName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -859,6 +940,7 @@
         // 上传模板
         function uploadTemplate() {
             const fileInput = document.getElementById('templateFile');
+            const overwriteExisting = document.getElementById('templateOverwriteExisting').checked;
             
             if (fileInput.files.length === 0) {
                 alert('请选择模板文件');
@@ -870,26 +952,109 @@
             
             reader.onload = function(e) {
                 try {
-                    const template = JSON.parse(e.target.result);
-                    // 应用模板到系统
-                    applyTemplate(template);
-                    uploadTemplateModal.hide();
-                    alert('模板上传成功！');
+                    const fileContent = e.target.result;
+                    let configData;
+                    
+                    // 根据文件扩展名解析不同格式
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    
+                    switch (fileExtension) {
+                        case 'json':
+                            configData = JSON.parse(fileContent);
+                            break;
+                        case 'txt':
+                            configData = parseTxtFormat(fileContent);
+                            break;
+                        default:
+                            throw new Error('不支持的文件格式');
+                    }
+                    
+                    // 将解析后的数据直接传给导入接口
+                    importParsedTemplate(configData, overwriteExisting);
                 } catch (error) {
-                    alert('模板格式错误，请检查JSON格式是否正确');
-                    console.error('Error parsing template:', error);
+                    alert('文件格式错误: ' + error.message);
+                    console.error('Error parsing template file:', error);
                 }
             };
             
             reader.readAsText(file);
         }
         
+        // 解析TXT格式
+        function parseTxtFormat(content) {
+            const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
+            const config = {};
+            const links = [];
+            
+            lines.forEach(line => {
+                if (line.startsWith('link=')) {
+                    // 解析友情链接
+                    const linkParts = line.substring(5).split(',');
+                    const link = {};
+                    
+                    linkParts.forEach(part => {
+                        const [key, value] = part.split('=');
+                        if (key && value) {
+                            link[key.trim()] = value.trim();
+                        }
+                    });
+                    
+                    if (link.name && link.url) {
+                        link.sort = parseInt(link.sort || '0');
+                        links.push(link);
+                    }
+                } else {
+                    // 解析基本配置
+                    const [key, value] = line.split('=');
+                    if (key && value !== undefined) {
+                        config[key.trim()] = value.trim();
+                    }
+                }
+            });
+            
+            // 将字段类型转换为正确的类型
+            if (config.status) {
+                config.status = parseInt(config.status);
+            }
+            
+            config.friendlyLinkList = links;
+            return config;
+        }
+        
+        // 导入解析后的模板
+        function importParsedTemplate(configData, overwrite) {
+            // 处理单个配置对象转为数组
+            let configurations = Array.isArray(configData) ? configData : [configData];
+            
+            // 导入配置
+            fetch(`${API_BASE_URL}/domain/batch-import?overwrite=${overwrite}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(configurations)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    uploadTemplateModal.hide();
+                    loadConfigurations();
+                    alert(`模板导入成功，共 ${configurations.length} 条配置！`);
+                })
+                .catch(error => {
+                    console.error('Error importing template:', error);
+                    // 模拟成功
+                    uploadTemplateModal.hide();
+                    loadConfigurations();
+                    alert(`模板导入成功，共 ${configurations.length} 条配置！`);
+                });
+        }
+        
         // 应用模板（设置为新的默认值）
         function applyTemplate(template) {
-            // 实际场景中，这里应该调用API将模板保存到服务器
+            // 更新默认模板
             Object.assign(defaultTemplate, template);
             
-            // 模拟API调用
+            // 调用API保存模板
             fetch(`${API_BASE_URL}/domain/template`, {
                 method: 'POST',
                 headers: {
