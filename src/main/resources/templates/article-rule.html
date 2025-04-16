@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{rule.article}">文章分配规则</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/jsoneditor@9.9.0/dist/jsoneditor.min.css" rel="stylesheet">
+    <style>
+        .rule-card {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .rule-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .rule-content {
+            padding: 20px;
+        }
+        #jsoneditor {
+            height: 400px;
+        }
+        .article-type-item {
+            border-bottom: 1px solid #dee2e6;
+            padding: 10px 0;
+        }
+        .article-type-item:last-child {
+            border-bottom: none;
+        }
+        .range-inputs {
+            display: none;
+        }
+        .article-type-item.checked .range-inputs {
+            display: flex;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        <!-- 页面标题 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 th:text="#{rule.article}">文章分配规则</h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ruleModal">
+                <i class="fas fa-plus me-2"></i>
+                <span th:text="#{rule.add}">添加规则</span>
+            </button>
+        </div>
+
+        <!-- 过滤器 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" th:text="#{article.type}">文章类型</label>
+                        <select class="form-select" id="typeFilter">
+                            <option value="" th:text="#{text.all}">全部</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button class="btn btn-secondary w-100" id="filterBtn" th:text="#{button.filter}">筛选</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文章类型统计 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0" th:text="#{article.type.stats}">文章类型统计</h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="articleStats">
+                    <div th:each="stat : ${articleStats}" class="col-md-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title" th:text="${stat.name}">类型名称</h6>
+                                <p class="card-text">
+                                    <span th:text="${stat.type} + ': ' + ${stat.value}">分配状态: 0</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 规则列表 -->
+        <div class="row" id="ruleList">
+            <!-- 规则卡片将通过JavaScript动态加载 -->
+        </div>
+
+        <!-- 规则编辑模态框 -->
+        <div class="modal fade" id="ruleModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitle" th:text="#{rule.add}">添加规则</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="ruleForm">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label" th:text="#{rule.name}">规则名称</label>
+                                    <input type="text" class="form-control" id="name" required>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">文章分类分配</label>
+                                    <div id="articleTypeList" class="border rounded p-3">
+                                        <!-- 文章分类列表将通过JavaScript动态加载 -->
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label" th:text="#{rule.sort}">排序</label>
+                                    <input type="number" class="form-control" id="sort" min="0" value="0">
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="form-check mt-2">
+                                        <input class="form-check-input" type="checkbox" id="enabled" checked>
+                                        <label class="form-check-label" for="enabled" th:text="#{rule.enabled}">
+                                            启用规则
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label" th:text="#{rule.remark}">备注</label>
+                                    <textarea class="form-control" id="remark" rows="3"></textarea>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" th:text="#{button.cancel}">取消</button>
+                        <button type="button" class="btn btn-primary" id="saveRuleBtn" th:text="#{button.save}">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.9.0/dist/jsoneditor.min.js"></script>
+    <script th:inline="javascript">
+        // 国际化消息
+        const messages = {
+            loadingFailed: [[#{message.loading.failed}]],
+            saveSuccess: [[#{message.save.success}]],
+            saveFailed: [[#{message.save.failed}]],
+            deleteConfirm: [[#{message.delete.confirm}]],
+            deleteSuccess: [[#{message.delete.success}]],
+            deleteFailed: [[#{message.delete.failed}]],
+            networkError: [[#{message.network.error}]],
+            noRules: [[#{message.no.rules}]],
+            configError: [[#{rule.config.error}]],
+            enabled: [[#{rule.status.enabled}]],
+            disabled: [[#{rule.status.disabled}]],
+            edit: [[#{button.edit}]],
+            delete: [[#{button.delete}]],
+            remark: [[#{rule.remark}]],
+            articleTotal: [[#{article.total}]],
+            articleAssigned: [[#{article.assigned}]]
+        };
+        
+        // API基础路径
+        const API_BASE_URL = '/api/article/rules';
+        
+        // 当前编辑的规则ID
+        let currentRuleId = null;
+        
+        // 页面加载完成后执行
+        $(document).ready(function() {
+            // 使用已有的数据初始化文章类型列表和过滤器
+            const articleCounts = [[${articleCounts}]];
+            console.log('文章统计数据:', articleCounts);
+            if (articleCounts && articleCounts.length > 0) {
+                // 提取唯一的文章类型
+                const uniqueTypes = [];
+                const typeMap = new Map();
+                
+                articleCounts.forEach(function(count) {
+                    if (!typeMap.has(count.name)) {
+                        typeMap.set(count.name, true);
+                        uniqueTypes.push({
+                            id: count.name,  // 使用name作为id
+                            name: count.name
+                        });
+                    }
+                });
+                
+                console.log('唯一的文章类型:', uniqueTypes);
+                // 渲染文章类型列表
+                renderArticleTypeList(uniqueTypes);
+                
+                // 初始化过滤器选项
+                const typeFilter = $('#typeFilter');
+                uniqueTypes.forEach(function(type) {
+                    typeFilter.append($('<option>')
+                        .val(type.id)
+                        .text(type.name));
+                });
+
+                // 直接渲染文章统计数据
+                renderArticleStats(articleCounts);
+            }
+            
+            loadRules();
+            $('#saveRuleBtn').on('click', saveRule);
+            $('#filterBtn').on('click', loadRules);
+        });
+        
+        // 渲染文章统计数据
+        function renderArticleStats(stats) {
+            const container = $('#articleStats');
+            container.empty();
+            
+            if (!stats || !stats.length) {
+                container.append($('<div>').addClass('col-12 text-center')
+                    .append($('<p>').addClass('text-muted').text('暂无数据')));
+                return;
+            }
+            
+            // 按文章类型分组统计数据
+            const groupedStats = {};
+            stats.forEach(function(stat) {
+                if (!groupedStats[stat.name]) {
+                    groupedStats[stat.name] = {
+                        name: stat.name,
+                        assigned: 0,
+                        unassigned: 0
+                    };
+                }
+                if (stat.type === '已分配') {
+                    groupedStats[stat.name].assigned = stat.value;
+                } else {
+                    groupedStats[stat.name].unassigned = stat.value;
+                }
+            });
+            
+            // 渲染统计卡片
+            Object.values(groupedStats).forEach(function(stat) {
+                const total = stat.assigned + stat.unassigned;
+                
+                const card = $('<div>').addClass('col-md-4 mb-3');
+                const cardInner = $('<div>').addClass('card');
+                const cardBody = $('<div>').addClass('card-body');
+                
+                cardBody.append($('<h6>').addClass('card-title').text(stat.name));
+                cardBody.append($('<p>').addClass('card-text')
+                    .append($('<span>').text(`总数: ${total}`))
+                    .append($('<br>'))
+                    .append($('<span>').text(`已分配: ${stat.assigned}`))
+                    .append($('<br>'))
+                    .append($('<span>').text(`未分配: ${stat.unassigned}`))
+                );
+                
+                cardInner.append(cardBody);
+                card.append(cardInner);
+                container.append(card);
+            });
+        }
+        
+        // 渲染文章类型列表
+        function renderArticleTypeList(types) {
+            const container = $('#articleTypeList');
+            container.empty();
+            
+            types.forEach(function(type) {
+                const typeItem = $('<div>').addClass('article-type-item');
+                
+                // 复选框和标签
+                const checkboxDiv = $('<div>').addClass('d-flex align-items-center mb-2');
+                const checkbox = $('<input>')
+                    .attr('type', 'checkbox')
+                    .addClass('form-check-input me-2')
+                    .attr('id', `type-${type.id}`)
+                    .data('type-id', type.id);
+                const label = $('<label>')
+                    .addClass('form-check-label')
+                    .attr('for', `type-${type.id}`)
+                    .text(type.name);
+                checkboxDiv.append(checkbox, label);
+                
+                // 数值范围输入
+                const rangeInputs = $('<div>').addClass('range-inputs gap-2 mt-2');
+                const minInput = $('<input>')
+                    .attr('type', 'number')
+                    .addClass('form-control form-control-sm')
+                    .attr('placeholder', '最小数量')
+                    .attr('min', '0')
+                    .attr('value', '10')
+                    .attr('id', `min-${type.id}`);
+                const maxInput = $('<input>')
+                    .attr('type', 'number')
+                    .addClass('form-control form-control-sm')
+                    .attr('placeholder', '最大数量')
+                    .attr('min', '1')
+                    .attr('value', '30')
+                    .attr('id', `max-${type.id}`);
+                
+                rangeInputs.append(
+                    $('<div>').addClass('col-6').append(minInput),
+                    $('<div>').addClass('col-6').append(maxInput)
+                );
+                
+                typeItem.append(checkboxDiv, rangeInputs);
+                container.append(typeItem);
+                
+                // 复选框变化事件
+                checkbox.on('change', function() {
+                    typeItem.toggleClass('checked', this.checked);
+                });
+            });
+        }
+        
+        // 加载规则列表
+        function loadRules() {
+            let url = API_BASE_URL;
+            
+            // 添加筛选参数
+            const typeId = $('#typeFilter').val();
+            if (typeId) {
+                url += `/filter?typeId=${typeId}`;
+            }
+            
+            $.get(url)
+                .done(function(response) {
+                    if (response.code === 200) {
+                        renderRules(response.data || []);
+                    } else {
+                        showError(response.message || messages.loadingFailed);
+                    }
+                })
+                .fail(function() {
+                    showError(messages.networkError);
+                });
+        }
+        
+        // 渲染规则列表
+        function renderRules(rules) {
+            const container = $('#ruleList');
+            container.empty();
+            
+            if (!rules.length) {
+                container.append($('<div>').addClass('col-12 text-center mt-4')
+                    .append($('<p>').addClass('text-muted').text(messages.noRules)));
+                return;
+            }
+            
+            rules.forEach(function(rule) {
+                const card = renderRuleCard(rule);
+                container.append(card);
+            });
+        }
+        
+        // 渲染规则卡片
+        function renderRuleCard(rule) {
+            const card = $('<div>').addClass('col-md-6 mb-4');
+            const cardInner = $('<div>').addClass('card rule-card');
+            
+            // 卡片头部
+            const cardHeader = $('<div>').addClass('card-header d-flex justify-content-between align-items-center');
+            cardHeader.append($('<h5>').addClass('mb-0').text(rule.name));
+            const statusBadge = $('<span>').addClass('badge ' + (rule.enabled ? 'bg-success' : 'bg-secondary'))
+                .text(rule.enabled ? messages.enabled : messages.disabled);
+            cardHeader.append(statusBadge);
+            
+            // 卡片内容
+            const cardBody = $('<div>').addClass('card-body');
+            
+            // 规则配置预览
+            try {
+                const config = JSON.parse(rule.ruleConfig);
+                const configList = $('<ul>').addClass('list-unstyled mb-3');
+                config.forEach(function(item) {
+                    configList.append($('<li>').text(
+                        `${item.typeId}: ${item.minCount}-${item.maxCount}篇`
+                    ));
+                });
+                cardBody.append(configList);
+            } catch (e) {
+                cardBody.append($('<p>').addClass('text-danger').text(messages.configError));
+            }
+            
+            // 操作按钮组
+            const btnGroup = $('<div>').addClass('btn-group');
+            
+            // 关键词配置按钮
+            btnGroup.append(
+                $('<button>').addClass('btn btn-sm btn-warning')
+                    .append($('<i>').addClass('fas fa-tags me-1'))
+                    .append('关键词')
+                    .on('click', () => showKeywordsConfig(rule.id))
+            );
+            
+            // 评论规则配置按钮
+            btnGroup.append(
+                $('<button>').addClass('btn btn-sm btn-info')
+                    .append($('<i>').addClass('fas fa-comments me-1'))
+                    .append('评论规则')
+                    .on('click', () => showCommentRuleConfig(rule.id))
+            );
+            
+            // 文章配置按钮
+            btnGroup.append(
+                $('<button>').addClass('btn btn-sm btn-success')
+                    .append($('<i>').addClass('fas fa-newspaper me-1'))
+                    .append('文章')
+                    .on('click', () => showArticleConfig(rule.id))
+            );
+            
+            // 编辑和删除按钮
+            btnGroup.append(
+                $('<button>').addClass('btn btn-sm btn-primary')
+                    .text(messages.edit)
+                    .on('click', () => editRule(rule.id))
+            );
+            btnGroup.append(
+                $('<button>').addClass('btn btn-sm btn-danger')
+                    .text(messages.delete)
+                    .on('click', () => deleteRule(rule.id))
+            );
+            
+            cardBody.append(btnGroup);
+            cardInner.append(cardHeader, cardBody);
+            return card.append(cardInner);
+        }
+
+        // 显示关键词配置弹窗
+        function showKeywordsConfig(ruleId) {
+            $.get(`/api/seo/keywords`)
+                .done(function(response) {
+                    if (response.code === 200) {
+                        const keywords = response.data;
+                        showConfigModal('关键词配置', keywords, ruleId, 'keyword');
+                    }
+                });
+        }
+
+        // 显示评论规则配置弹窗
+        function showCommentRuleConfig(ruleId) {
+            $.get(`/api/comment/rules`)
+                .done(function(response) {
+                    if (response.code === 200) {
+                        const rules = response.data;
+                        showConfigModal('评论规则配置', rules, ruleId, 'comment');
+                    }
+                });
+        }
+
+        // 显示文章配置弹窗
+        function showArticleConfig(ruleId) {
+            $.get(`/api/articles/list`)
+                .done(function(response) {
+                    if (response.code === 200) {
+                        const articles = response.data;
+                        showConfigModal('文章配置', articles, ruleId, 'article');
+                    }
+                });
+        }
+
+        // 通用配置弹窗
+        function showConfigModal(title, items, ruleId, type) {
+            const modal = $('<div>').addClass('modal fade').attr('id', 'configModal');
+            const dialog = $('<div>').addClass('modal-dialog modal-lg');
+            const content = $('<div>').addClass('modal-content');
+            
+            // 模态框头部
+            const header = $('<div>').addClass('modal-header')
+                .append($('<h5>').addClass('modal-title').text(title))
+                .append($('<button>').addClass('btn-close').attr({
+                    'type': 'button',
+                    'data-bs-dismiss': 'modal'
+                }));
+            
+            // 模态框主体
+            const body = $('<div>').addClass('modal-body');
+            const itemList = $('<div>').addClass('list-group');
+            
+            items.forEach(function(item) {
+                const itemElement = $('<div>').addClass('list-group-item')
+                    .append($('<div>').addClass('form-check')
+                        .append($('<input>').addClass('form-check-input')
+                            .attr({
+                                'type': 'checkbox',
+                                'id': `item-${item.id}`,
+                                'data-id': item.id
+                            }))
+                        .append($('<label>').addClass('form-check-label')
+                            .attr('for', `item-${item.id}`)
+                            .text(item.name || item.title || item.keyword))
+                    );
+                itemList.append(itemElement);
+            });
+            
+            body.append(itemList);
+            
+            // 模态框底部
+            const footer = $('<div>').addClass('modal-footer')
+                .append($('<button>').addClass('btn btn-secondary')
+                    .attr('data-bs-dismiss', 'modal')
+                    .text('取消'))
+                .append($('<button>').addClass('btn btn-primary')
+                    .text('保存')
+                    .on('click', function() {
+                        const selectedIds = [];
+                        itemList.find('input:checked').each(function() {
+                            selectedIds.push($(this).data('id'));
+                        });
+                        
+                        saveConfig(ruleId, selectedIds, type);
+                    }));
+            
+            content.append(header, body, footer);
+            dialog.append(content);
+            modal.append(dialog);
+            
+            // 移除已存在的模态框
+            $('#configModal').remove();
+            // 添加新的模态框
+            $('body').append(modal);
+            
+            // 显示模态框
+            new bootstrap.Modal(modal).show();
+            
+            // 加载已选择的配置
+            loadExistingConfig(ruleId, type, itemList);
+        }
+
+        // 加载已存在的配置
+        function loadExistingConfig(ruleId, type, itemList) {
+            $.get(`/api/article/rules/${ruleId}/config/${type}`)
+                .done(function(response) {
+                    if (response.code === 200 && response.data) {
+                        const selectedIds = response.data;
+                        selectedIds.forEach(function(id) {
+                            itemList.find(`input[data-id="${id}"]`).prop('checked', true);
+                        });
+                    }
+                });
+        }
+
+        // 保存配置
+        function saveConfig(ruleId, selectedIds, type) {
+            $.ajax({
+                url: `/api/article/rules/${ruleId}/config/${type}`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(selectedIds)
+            })
+            .done(function(response) {
+                if (response.code === 200) {
+                    $('#configModal').modal('hide');
+                    showSuccess('配置保存成功');
+                } else {
+                    showError(response.message || '保存失败');
+                }
+            })
+            .fail(function() {
+                showError('网络错误');
+            });
+        }
+        
+        // 保存规则
+        function saveRule() {
+            if (!$('#ruleForm').valid()) {
+                return;
+            }
+            
+            // 收集选中的文章类型和数值范围
+            const ruleConfig = [];
+            $('#articleTypeList .article-type-item').each(function() {
+                const checkbox = $(this).find('input[type="checkbox"]');
+                if (checkbox.prop('checked')) {
+                    const typeId = checkbox.data('type-id');
+                    ruleConfig.push({
+                        typeId: typeId,
+                        minCount: parseInt($(`#min-${typeId}`).val()) || 10,
+                        maxCount: parseInt($(`#max-${typeId}`).val()) || 30
+                    });
+                }
+            });
+            
+            const rule = {
+                name: $('#name').val().trim(),
+                ruleConfig: JSON.stringify(ruleConfig),  // 将数组转换为JSON字符串
+                sort: parseInt($('#sort').val()) || 0,
+                enabled: $('#enabled').prop('checked'),
+                remark: $('#remark').val().trim()
+            };
+            
+            const method = currentRuleId ? 'PUT' : 'POST';
+            const url = currentRuleId ? `${API_BASE_URL}/${currentRuleId}` : API_BASE_URL;
+            
+            $.ajax({
+                url: url,
+                method: method,
+                contentType: 'application/json',
+                data: JSON.stringify(rule)
+            })
+            .done(function(response) {
+                if (response.code === 200) {
+                    $('#ruleModal').modal('hide');
+                    showSuccess(messages.saveSuccess);
+                    loadRules();
+                } else {
+                    showError(response.message || messages.saveFailed);
+                }
+            })
+            .fail(function() {
+                showError(messages.networkError);
+            });
+        }
+        
+        // 编辑规则
+        function editRule(id) {
+            currentRuleId = id;
+            $('#modalTitle').text(messages.edit);
+            
+            $.get(`${API_BASE_URL}/${id}`)
+                .done(function(response) {
+                    if (response.code === 200) {
+                        const rule = response.data;
+                        $('#name').val(rule.name);
+                        $('#sort').val(rule.sort);
+                        $('#enabled').prop('checked', rule.enabled);
+                        $('#remark').val(rule.remark || '');
+                        
+                        // 设置文章类型选择和数值范围
+                        let ruleConfig = [];
+                        try {
+                            ruleConfig = JSON.parse(rule.ruleConfig || '[]');
+                        } catch (e) {
+                            console.error('解析规则配置失败:', e);
+                        }
+                        
+                        ruleConfig.forEach(function(config) {
+                            const checkbox = $(`#type-${config.typeId}`);
+                            checkbox.prop('checked', true)
+                                .closest('.article-type-item')
+                                .addClass('checked');
+                            $(`#min-${config.typeId}`).val(config.minCount);
+                            $(`#max-${config.typeId}`).val(config.maxCount);
+                        });
+                        
+                        $('#ruleModal').modal('show');
+                    } else {
+                        showError(response.message || messages.loadingFailed);
+                    }
+                })
+                .fail(function() {
+                    showError(messages.networkError);
+                });
+        }
+        
+        // 删除规则
+        function deleteRule(id) {
+            Swal.fire({
+                title: messages.deleteConfirm,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: [[#{button.confirm}]],
+                cancelButtonText: [[#{button.cancel}]]
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: `${API_BASE_URL}/${id}`,
+                        method: 'DELETE'
+                    })
+                    .done(function(response) {
+                        if (response.code === 200) {
+                            showSuccess(messages.deleteSuccess);
+                            loadRules();
+                        } else {
+                            showError(response.message || messages.deleteFailed);
+                        }
+                    })
+                    .fail(function() {
+                        showError(messages.networkError);
+                    });
+                }
+            });
+        }
+        
+        // 显示成功提示
+        function showSuccess(message) {
+            Swal.fire({
+                icon: 'success',
+                title: message,
+                showConfirmButton: false,
+                timer: 1500
+            });
+        }
+        
+        // 显示错误提示
+        function showError(message) {
+            Swal.fire({
+                icon: 'error',
+                title: message,
+                showConfirmButton: true
+            });
+        }
+        
+        // 重置表单
+        function resetForm() {
+            $('#ruleForm')[0].reset();
+            currentRuleId = null;
+            $('#modalTitle').text([[#{rule.add}]]);
+            editor.set({});
+        }
+        
+        // 初始化模态框事件
+        $('#ruleModal').on('hidden.bs.modal', resetForm);
+        
+        // 初始化表单验证
+        $('#ruleForm').validate({
+            rules: {
+                name: {
+                    required: true,
+                    minlength: 2
+                }
+            },
+            messages: {
+                name: {
+                    required: [[#{validation.name.required}]],
+                    minlength: [[#{validation.name.minlength}]]
+                }
+            },
+            errorElement: 'span',
+            errorClass: 'invalid-feedback',
+            errorPlacement: function(error, element) {
+                error.insertAfter(element);
+            },
+            highlight: function(element) {
+                $(element).addClass('is-invalid');
+            },
+            unhighlight: function(element) {
+                $(element).removeClass('is-invalid');
+            }
+        });
+    </script>
+</body>
+</html> 

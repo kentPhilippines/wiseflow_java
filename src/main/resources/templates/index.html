@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{system.name}">WiseFlow 智能建站系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        .module-card {
+            transition: transform 0.3s;
+            margin-bottom: 20px;
+        }
+        .module-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card {
+            border-left: 4px solid #007bff;
+        }
+        .card-icon {
+            font-size: 2rem;
+            color: #007bff;
+        }
+        .language-selector {
+            margin-left: 15px;
+        }
+        .language-selector .nav-link {
+            color: rgba(255,255,255,.75);
+            padding: .25rem .5rem;
+        }
+        .language-selector .nav-link.active {
+            color: white;
+            font-weight: bold;
+        }
+        /* 添加 iframe 相关样式 */
+        #iframe-wrapper {
+            position: fixed;
+            top: 56px; /* navbar 的高度 */
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #fff;
+            z-index: 1000;
+            padding: 20px;
+        }
+        #content-iframe {
+            width: 100%;
+            height: calc(100vh - 140px); /* 视窗高度减去导航栏和padding */
+            border: none;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #back-to-dashboard {
+            position: sticky;
+            top: 20px;
+            z-index: 1001;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#" th:text="#{system.name}">WiseFlow</a>
+            <div class="language-selector ms-auto">
+                <div class="nav nav-pills">
+                    <a class="nav-link" th:classappend="${#locale.language == 'zh' ? 'active' : ''}" 
+                       href="?lang=zh_CN">中文</a>
+                    <a class="nav-link" th:classappend="${#locale.language == 'en' ? 'active' : ''}" 
+                       href="?lang=en">English</a>
+                    <a class="nav-link" th:classappend="${#locale.language == 'vi' ? 'active' : ''}" 
+                       href="?lang=vi">Tiếng Việt</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- 添加内容展示区域 -->
+        <div class="content-wrapper">
+            <!-- 统计卡片区域 -->
+            <div id="dashboard-content">
+                <div class="row mb-4">
+                    <div class="col-md-2">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted" th:text="#{stats.total.domains}">总域名数</h6>
+                                        <h3 class="mb-0" th:text="${domainCount}">0</h3>
+                                    </div>
+                                    <i class="fas fa-globe card-icon"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card" style="border-left: 4px solid #17a2b8;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted" th:text="#{stats.enabled.domains}">启用域名</h6>
+                                        <h3 class="mb-0" th:text="${enabledDomainCount}">0</h3>
+                                    </div>
+                                    <i class="fas fa-check-circle card-icon" style="color: #17a2b8;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted" th:text="#{stats.total.rules}">总规则数</h6>
+                                        <h3 class="mb-0" th:text="${ruleCount}">0</h3>
+                                    </div>
+                                    <i class="fas fa-cogs card-icon"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card" style="border-left: 4px solid #dc3545;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted" th:text="#{stats.unassigned.articles}">未分配文章</h6>
+                                        <h3 class="mb-0" th:text="${unassignedNewsCount}">0</h3>
+                                    </div>
+                                    <i class="fas fa-newspaper card-icon" style="color: #dc3545;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card" style="border-left: 4px solid #28a745;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted" th:text="#{stats.keyword.rules}">关键词规则</h6>
+                                        <h3 class="mb-0" th:text="${keywordRuleCount}">0</h3>
+                                    </div>
+                                    <i class="fas fa-tags card-icon" style="color: #28a745;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card" style="border-left: 4px solid #6f42c1;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted" th:text="#{stats.comment.rules}">评论规则</h6>
+                                        <h3 class="mb-0" th:text="${commentRuleCount}">0</h3>
+                                    </div>
+                                    <i class="fas fa-comments card-icon" style="color: #6f42c1;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="card stat-card" style="border-left: 4px solid #fd7e14;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted" th:text="#{stats.article.rules}">文章规则</h6>
+                                        <h3 class="mb-0" th:text="${articleRuleCount}">0</h3>
+                                    </div>
+                                    <i class="fas fa-file-alt card-icon" style="color: #fd7e14;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-2">
+                        <div class="card stat-card" style="border-left: 4px solid #ffc107;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted" th:text="#{stats.total.articles}">总文章数</h6>
+                                        <h3 class="mb-0" th:text="${totalNewsCount}">0</h3>
+                                    </div>
+                                    <i class="fas fa-file-alt card-icon" style="color: #ffc107;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <!-- 建站模块 -->
+                    <div class="col-md-6">
+                        <div class="card module-card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-sitemap me-2"></i>
+                                    <span th:text="#{module.site.management}">建站管理</span>
+                                </h5>
+                                <p class="card-text" th:text="#{module.site.description}">管理网站域名、TDK配置、友情链接等基础信息</p>
+                                <div class="list-group">
+                                    <a href="javascript:void(0)" data-url="/domain" class="list-group-item list-group-item-action load-content">
+                                        <i class="fas fa-globe me-2"></i>
+                                        <span th:text="#{site.config}">域名配置</span>
+                                    </a>
+                                    <!-- <a href="javascript:void(0)"   class="list-group-item list-group-item-action load-content">
+                                        <i class="fas fa-plus me-2"></i>
+                                        <span th:text="#{site.add}">添加新站点</span>
+                                    </a>
+                                    <a href="javascript:void(0)"   class="list-group-item list-group-item-action load-content">
+                                        <i class="fas fa-upload me-2"></i>
+                                        <span th:text="#{site.batch.import}">批量导入</span>
+                                    </a> -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 规则模块 -->
+                    <div class="col-md-6">
+                        <div class="card module-card">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-cogs me-2"></i>
+                                    <span th:text="#{module.rule.management}">规则管理</span>
+                                </h5>
+                                <p class="card-text" th:text="#{module.rule.description}">管理SEO关键词和评论规则配置</p>
+                                <div class="list-group">
+                                    <a href="javascript:void(0)" data-url="/comment/rule" class="list-group-item list-group-item-action load-content">
+                                        <i class="fas fa-comments me-2"></i>
+                                        <span th:text="#{rule.comment}">评论规则</span>
+                                    </a>
+                                    <a href="javascript:void(0)" data-url="/seo-keywords" class="list-group-item list-group-item-action load-content">
+                                        <i class="fas fa-tags me-2"></i>
+                                        <span th:text="#{rule.seo}">SEO关键词</span>
+                                    </a>
+                                    <a href="javascript:void(0)" data-url="/article/rule" class="list-group-item list-group-item-action load-content">
+                                        <i class="fas fa-file-alt me-2"></i>
+                                        <span th:text="#{rule.article}">文章分配规则</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 最近活动 -->
+                <!-- <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title" th:text="#{activity.recent}">最近活动</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th th:text="#{activity.time}">时间</th>
+                                                <th th:text="#{activity.type}">类型</th>
+                                                <th th:text="#{activity.description}">描述</th>
+                                                <th th:text="#{activity.operator}">操作人</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="activity : ${recentActivities}">
+                                                <td th:text="${#temporals.format(activity.createTime, 'yyyy-MM-dd HH:mm:ss')}">2024-01-01 12:00:00</td>
+                                                <td th:text="${activity.type}">域名配置</td>
+                                                <td th:text="${activity.description}">添加新域名</td>
+                                                <td th:text="${activity.operator}">admin</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div> -->
+            </div>
+
+            <!-- iframe 内容区域 -->
+            <div id="iframe-wrapper" style="display: none;">
+                <div class="container">
+                    <button class="btn btn-outline-primary mb-3" id="back-to-dashboard">
+                        <i class="fas fa-arrow-left me-2"></i>返回首页
+                    </button>
+                    <iframe id="content-iframe"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- 页面加载和导航处理的脚本 -->
+    <script>
+        $(document).ready(function() {
+            const $dashboardContent = $('#dashboard-content');
+            const $iframeWrapper = $('#iframe-wrapper');
+            const $iframe = $('#content-iframe');
+            
+            // 处理内容加载
+            $('.load-content').click(function(e) {
+                e.preventDefault();
+                const url = $(this).data('url');
+                
+                // 设置 iframe src 并显示
+                $iframe.attr('src', url);
+                $dashboardContent.hide();
+                $iframeWrapper.show();
+                
+                // 移除之前的滚动限制
+                $('body').css('overflow', 'hidden');
+            });
+            
+            // 返回仪表板
+            $('#back-to-dashboard').click(function() {
+                $iframe.attr('src', '');
+                $iframeWrapper.hide();
+                $dashboardContent.show();
+                
+                // 恢复滚动
+                $('body').css('overflow', '');
+            });
+        });
+    </script>
+</body>
+</html> 

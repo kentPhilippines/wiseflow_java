@@ -1,15 +1,28 @@
 package com.wiseflow.service;
 
 import com.wiseflow.entity.DomainConfig;
-
+import com.wiseflow.dto.DomainConfigRequest;
 import java.util.List;
 import java.util.Optional;
 
 /**
  * 域名配置服务接口
- * 使用MyBatis-Plus实现，不使用事务管理
  */
 public interface DomainConfigService {
+    
+    /**
+     * 获取域名配置总数
+     *
+     * @return 域名配置总数
+     */
+    Long count();
+    
+    /**
+     * 获取启用的域名配置总数
+     *
+     * @return 启用的域名配置总数
+     */
+    Long countEnabled();
     
     /**
      * 保存域名配置
@@ -47,9 +60,11 @@ public interface DomainConfigService {
     void deleteById(Integer id);
     
     /**
-     * 启用/禁用域名配置
+     * 更新域名配置状态
+     * @param id 配置ID
+     * @param status 状态：1-启用，0-禁用
      */
-    void toggleStatus(Integer id, boolean enabled);
+    void toggleStatus(Integer id, Integer status);
     
     /**
      * 批量导入域名配置
@@ -63,4 +78,24 @@ public interface DomainConfigService {
      * 保存域名配置模板
      */
     void saveTemplate(DomainConfig template);
+
+    /**
+     * 查找所有启用的域名配置
+     */
+    List<DomainConfig> findAllEnabled();
+
+    /**
+     * 保存域名SEO关键词配置
+     */
+    void saveKeywordConfig(Long domainId, DomainConfigRequest request);
+
+    /**
+     * 保存域名评论规则配置
+     */
+    void saveCommentConfig(Long domainId, DomainConfigRequest request);
+
+    /**
+     * 保存域名文章配置
+     */
+    void saveArticleConfig(Long domainId, DomainConfigRequest request);
 } 

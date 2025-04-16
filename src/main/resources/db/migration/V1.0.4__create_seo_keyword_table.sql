@@ -1,0 +1,22 @@
+CREATE TABLE `wf_seo_keyword` (
+    `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `domain_config` varchar(100) NOT NULL COMMENT '所属域名',
+    `keyword` varchar(100) NOT NULL COMMENT '关键词',
+    `type` tinyint(4) NOT NULL DEFAULT '1' COMMENT '关键词类型（1:主关键词 2:长尾关键词）',
+    `weight` tinyint(4) NOT NULL DEFAULT '5' COMMENT '关键词权重（1-10）',
+    `use_scene` tinyint(4) NOT NULL DEFAULT '1' COMMENT '使用场景（1:文章内容 2:评论 3:两者都用）',
+    `show_on_homepage` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否在首页展示',
+    `enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否启用',
+    `max_insertions` int(11) DEFAULT '3' COMMENT '每篇文章最大插入次数',
+    `allow_title` tinyint(1) DEFAULT '0' COMMENT '是否允许插入标题',
+    `comment_sentiment` tinyint(4) DEFAULT '1' COMMENT '评论情感倾向（1:正面 2:中性 3:负面）',
+    `max_comment_repeat` int(11) DEFAULT '1' COMMENT '评论关键词最大重复次数',
+    `remark` varchar(255) DEFAULT NULL COMMENT '备注',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_domain_config` (`domain_config`),
+    KEY `idx_keyword` (`keyword`),
+    KEY `idx_type` (`type`),
+    KEY `idx_use_scene` (`use_scene`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='SEO关键词表'; 

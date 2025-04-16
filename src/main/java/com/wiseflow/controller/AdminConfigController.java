@@ -1,11 +1,9 @@
 package com.wiseflow.controller;
 
-import com.wiseflow.config.CacheConfig;
 import com.wiseflow.entity.DomainConfig;
 import com.wiseflow.service.DomainConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,10 +45,8 @@ public class AdminConfigController {
     
     /**
      * 保存域名配置
-     * 清除域名配置缓存
      */
     @PostMapping("/domain")
-    @CacheEvict(value = CacheConfig.CACHE_DOMAIN_CONFIG, key = "#domainConfig.domain")
     public ResponseEntity<DomainConfig> saveDomainConfig(@RequestBody DomainConfig domainConfig) {
         log.info("保存域名配置: domain={}", domainConfig.getDomain());
         return ResponseEntity.ok(domainConfigService.save(domainConfig));
@@ -58,10 +54,8 @@ public class AdminConfigController {
     
     /**
      * 更新域名配置
-     * 清除域名配置缓存
      */
     @PutMapping("/domain/{id}")
-    @CacheEvict(value = CacheConfig.CACHE_DOMAIN_CONFIG, allEntries = true)
     public ResponseEntity<DomainConfig> updateDomainConfig(
             @PathVariable Integer id, 
             @RequestBody DomainConfig domainConfig) {
@@ -74,10 +68,8 @@ public class AdminConfigController {
     
     /**
      * 删除域名配置
-     * 清除域名配置缓存
      */
     @DeleteMapping("/domain/{id}")
-    @CacheEvict(value = CacheConfig.CACHE_DOMAIN_CONFIG, allEntries = true)
     public ResponseEntity<Void> deleteDomainConfig(@PathVariable Integer id) {
         log.info("删除域名配置: id={}", id);
         
@@ -86,28 +78,19 @@ public class AdminConfigController {
     }
     
     /**
-     * 启用/禁用域名配置
-     * 清除域名配置缓存
+     * 更新域名配置状态
      */
     @PutMapping("/domain/{id}/status")
-    @CacheEvict(value = CacheConfig.CACHE_DOMAIN_CONFIG, allEntries = true)
-    public ResponseEntity<Void> toggleDomainConfigStatus(
-            @PathVariable Integer id, 
-            @RequestParam boolean enabled) {
-        
-        log.info("切换域名配置状态: id={}, enabled={}", id, enabled);
-        
-        domainConfigService.toggleStatus(id, enabled);
+    public ResponseEntity<Void> toggleStatus(@PathVariable Integer id, @RequestParam Integer status) {
+        domainConfigService.toggleStatus(id, status);
         return ResponseEntity.ok().build();
     }
     
     /**
      * 批量导入域名配置
      * 将数组数据转换为一条SQL插入数据库
-     * 清除域名配置缓存
      */
     @PostMapping("/domain/batch-import")
-    @CacheEvict(value = CacheConfig.CACHE_DOMAIN_CONFIG, allEntries = true)
     public ResponseEntity<Map<String, Object>> batchImportDomainConfigs(
             @RequestBody List<DomainConfig> domainConfigs,
             @RequestParam(defaultValue = "false") boolean overwrite) {

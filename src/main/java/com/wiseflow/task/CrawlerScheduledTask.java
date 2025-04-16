@@ -19,7 +19,7 @@ import java.util.Map;
  * 爬虫定时任务
  */
 @Slf4j
-@Component
+//@Component
 @RequiredArgsConstructor
 public class CrawlerScheduledTask {
 
@@ -33,12 +33,24 @@ public class CrawlerScheduledTask {
     private static final Map<String, String> NETEASE_CATEGORY_URLS = new HashMap<>();
     
     static {
-        NETEASE_CATEGORY_URLS.put("国内", "https://news.163.com/domestic/");
-        NETEASE_CATEGORY_URLS.put("国际", "https://news.163.com/world/");
-        NETEASE_CATEGORY_URLS.put("财经", "https://money.163.com/");
-        NETEASE_CATEGORY_URLS.put("科技", "https://tech.163.com/");
-        NETEASE_CATEGORY_URLS.put("体育", "https://sports.163.com/");
-        NETEASE_CATEGORY_URLS.put("娱乐", "https://ent.163.com/");
+        NETEASE_CATEGORY_URLS.put("NBA", "https://sports.163.com/nba/");
+        NETEASE_CATEGORY_URLS.put("CBA", "https://sports.163.com/cba/");
+        NETEASE_CATEGORY_URLS.put("英超", "https://sports.163.com/yc/");
+        NETEASE_CATEGORY_URLS.put("欧冠", "https://sports.163.com/gjb/");
+        NETEASE_CATEGORY_URLS.put("西甲", "https://sports.163.com/xj/");
+        NETEASE_CATEGORY_URLS.put("意甲", "https://sports.163.com/yj/");
+        NETEASE_CATEGORY_URLS.put("法甲", "https://sports.163.com/fj/");
+        NETEASE_CATEGORY_URLS.put("德甲", "https://sports.163.com/dj/");
+        NETEASE_CATEGORY_URLS.put("中国足球", "https://sports.163.com/china");
+        NETEASE_CATEGORY_URLS.put("亚冠", "https://sports.163.com/acl/");
+        NETEASE_CATEGORY_URLS.put("国字号", "https://sports.163.com/gjd/");
+        NETEASE_CATEGORY_URLS.put("赛车", "https://sports.163.com/f1/");
+        NETEASE_CATEGORY_URLS.put("乒乓球", "https://sports.163.com/ppq/");
+        NETEASE_CATEGORY_URLS.put("羽毛球", "https://sports.163.com/ymq/");
+        NETEASE_CATEGORY_URLS.put("排球", "https://sports.163.com/pq/");
+        NETEASE_CATEGORY_URLS.put("田径", "https://sports.163.com/tj/");
+        NETEASE_CATEGORY_URLS.put("台球", "https://sports.163.com/ding/");
+        NETEASE_CATEGORY_URLS.put("游泳", "https://sports.163.com/youyong/");
     }
     
     /**

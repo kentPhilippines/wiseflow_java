@@ -9,6 +9,7 @@ import com.wiseflow.mapper.DomainConfigMapper;
 import com.wiseflow.service.DomainConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,13 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.time.LocalDateTime;
 import java.util.Set;
+import com.wiseflow.dto.DomainConfigRequest;
+import com.wiseflow.entity.DomainSeoKeyword;
+import com.wiseflow.entity.DomainCommentRule;
+import com.wiseflow.entity.DomainArticleConfig;
+import com.wiseflow.mapper.DomainSeoKeywordMapper;
+import com.wiseflow.mapper.DomainCommentRuleMapper;
+import com.wiseflow.mapper.DomainArticleConfigMapper;
 
 /**
  * 域名配置服务实现类
@@ -41,15 +49,42 @@ public class DomainConfigServiceImpl implements DomainConfigService {
     // 默认模板路径
     @Value("${app.default-template-path:/templates/default}")
     private String defaultTemplatePath;
+
+    @Autowired
+    private DomainSeoKeywordMapper seoKeywordMapper;
     
+    @Autowired
+    private DomainCommentRuleMapper commentRuleMapper;
+    
+    @Autowired
+    private DomainArticleConfigMapper articleConfigMapper;
+
+    @Override
+    public Long count() {
+        return domainConfigMapper.selectCount(null);
+    }
+
+    @Override
+    public Long countEnabled() {
+        LambdaQueryWrapper<DomainConfig> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(DomainConfig::getStatus, 1);
+        return domainConfigMapper.selectCount(queryWrapper);
+    }
+
     @Override
     public DomainConfig save(DomainConfig domainConfig) {
+        // 自动生成其他字段
+        autoGenerateFields(domainConfig);
+        
         // 处理友情链接
         processFriendlyLinks(domainConfig);
         
         if (domainConfig.getId() == null) {
+            domainConfig.setCreateTime(LocalDateTime.now());
+            domainConfig.setUpdateTime(LocalDateTime.now());
             domainConfigMapper.insert(domainConfig);
         } else {
+            domainConfig.setUpdateTime(LocalDateTime.now());
             domainConfigMapper.updateById(domainConfig);
         }
         return domainConfig;
@@ -107,12 +142,24 @@ public class DomainConfigServiceImpl implements DomainConfigService {
     }
     
     @Override
-    public void toggleStatus(Integer id, boolean enabled) {
-        DomainConfig domainConfig = findById(id).orElseThrow(() -> 
-            new NoSuchElementException("Domain config not found with id: " + id));
-        
-        domainConfig.setStatus(enabled ? 1 : 0);
-        domainConfigMapper.updateById(domainConfig);
+    public void toggleStatus(Integer id, Integer status) {
+        findById(id).orElseThrow(() -> new NoSuchElementException("Domain config not found with id: " + id));
+        log.info("更新域名配置状态: id={}, status={}", id, status);
+        DomainConfig newdomainConfig = new DomainConfig();
+        newdomainConfig.setId(id);
+        newdomainConfig.setStatus(status);
+        newdomainConfig.setUpdateTime(LocalDateTime.now());
+        domainConfigMapper.updateById(newdomainConfig);
+    }
+    
+    @Override
+    public List<DomainConfig> findAllEnabled() {
+        LambdaQueryWrapper<DomainConfig> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(DomainConfig::getStatus, 1);
+        List<DomainConfig> domainConfigs = domainConfigMapper.selectList(queryWrapper);
+        // 解析所有配置的友情链接
+        domainConfigs.forEach(this::parseFriendlyLinks);
+        return domainConfigs;
     }
     
     /**
@@ -249,5 +296,112 @@ public class DomainConfigServiceImpl implements DomainConfigService {
     // 获取当前模板
     public static DomainConfig getTemplate() {
         return templateConfig;
+    }
+
+    /**
+     * 自动生成其他字段
+     */
+    private void autoGenerateFields(DomainConfig domainConfig) {
+        // 如果没有设置状态，默认为启用
+        if (domainConfig.getStatus() == null) {
+            domainConfig.setStatus(1);
+        }
+
+        // 如果没有设置模板路径，使用默认模板
+        if (domainConfig.getViewsPath() == null || domainConfig.getViewsPath().isEmpty()) {
+            domainConfig.setViewsPath(defaultTemplatePath);
+        }
+
+        // 如果没有设置每日文章数量，默认为50
+        if (domainConfig.getDailyAddNewsCount() == null) {
+            domainConfig.setDailyAddNewsCount(50);
+        }
+
+        // 如果没有设置Logo URL，根据域名生成默认Logo
+        if (domainConfig.getLogoUrl() == null || domainConfig.getLogoUrl().isEmpty()) {
+            domainConfig.setLogoUrl("https://" + domainConfig.getDomain() + "/logo.png");
+        }
+
+        // 如果没有设置ICP备案号，自动生成
+        if (domainConfig.getIcp() == null || domainConfig.getIcp().isEmpty()) {
+            domainConfig.setIcp("ICP备" + generateRandomNumber(8) + "号");
+        }
+
+        // 如果没有设置友情链接，初始化为空列表
+        if (domainConfig.getFriendlyLinks() == null) {
+            domainConfig.setFriendlyLinks("[]");
+        }
+
+        // 如果没有设置版权信息，根据域名生成
+        if (domainConfig.getCopyright() == null || domainConfig.getCopyright().isEmpty()) {
+            domainConfig.setCopyright("© " + LocalDateTime.now().getYear() + " " + domainConfig.getDomain() + " All Rights Reserved.");
+        }
+    }
+
+    /**
+     * 生成指定长度的随机数字
+     */
+    private String generateRandomNumber(int length) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append((int) (Math.random() * 10));
+        }
+        return sb.toString();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveKeywordConfig(Long domainId, DomainConfigRequest request) {
+        // 1. 删除原有配置
+        seoKeywordMapper.delete(new LambdaQueryWrapper<DomainSeoKeyword>()
+                .eq(DomainSeoKeyword::getDomainConfigId, domainId));
+        
+        // 2. 保存新配置
+        if (request.getConfigIds() != null && !request.getConfigIds().isEmpty()) {
+            request.getConfigIds().forEach(keywordId -> {
+                DomainSeoKeyword config = new DomainSeoKeyword();
+                config.setDomainConfigId(domainId.intValue());
+                config.setSeoKeywordId(keywordId.intValue());
+                seoKeywordMapper.insert(config);
+            });
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveCommentConfig(Long domainId, DomainConfigRequest request) {
+        // 1. 删除原有配置
+        commentRuleMapper.delete(new LambdaQueryWrapper<DomainCommentRule>()
+                .eq(DomainCommentRule::getDomainConfigId, domainId));
+        
+        // 2. 保存新配置
+        if (request.getConfigIds() != null && !request.getConfigIds().isEmpty()) {
+            request.getConfigIds().forEach(ruleId -> {
+                DomainCommentRule config = new DomainCommentRule();
+                config.setDomainConfigId(domainId.intValue());
+                config.setCommentRuleId(ruleId.intValue());
+                commentRuleMapper.insert(config);
+            });
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveArticleConfig(Long domainId, DomainConfigRequest request) {
+        // 1. 删除原有配置
+        articleConfigMapper.delete(new LambdaQueryWrapper<DomainArticleConfig>()
+                .eq(DomainArticleConfig::getDomainId, domainId));
+        
+        // 2. 保存新配置
+        if (request.getConfigIds() != null && !request.getConfigIds().isEmpty()) {
+            int sort = 0;
+            for (Long typeId : request.getConfigIds()) {
+                DomainArticleConfig config = new DomainArticleConfig();
+                config.setDomainId(domainId);
+                config.setTypeId(typeId);
+                config.setSort(sort++);
+                articleConfigMapper.insert(config);
+            }
+        }
     }
 } 

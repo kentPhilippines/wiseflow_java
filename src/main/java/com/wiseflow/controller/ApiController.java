@@ -4,9 +4,10 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.metadata.OrderItem;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wiseflow.config.CacheConfig;
+import com.wiseflow.entity.Comment;
 import com.wiseflow.entity.News;
-import com.wiseflow.service.ApiService;
 import com.wiseflow.service.CategoryService;
+import com.wiseflow.service.CommentService;
 import com.wiseflow.service.NewsService;
 import com.wiseflow.service.TagService;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +35,8 @@ public class ApiController {
     private final NewsService newsService;
     private final CategoryService categoryService;
     private final TagService tagService;
-    
+    private final CommentService commentService;
+
     /**
      * 获取新闻列表
      */
@@ -44,19 +46,20 @@ public class ApiController {
             @RequestParam(required = false) String categoryName,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize,
-            @RequestParam(required = false, defaultValue = "false") boolean all) {
+            @RequestParam(required = false, defaultValue = "false") boolean all,
+            @RequestParam(required = false ) String domainConfig
+            ) {
         
-        log.info("获取新闻列表: categoryName={}, pageNum={}, pageSize={}, all={}", categoryName, pageNum, pageSize, all);
+        log.info("获取新闻列表: categoryName={}, pageNum={}, pageSize={}, all={}, domainConfig={}", categoryName, pageNum, pageSize, all, domainConfig);
         
         Page<News> pageRequest = new Page<>(pageNum, pageSize);
         pageRequest.addOrder(OrderItem.desc("publish_time"));
-        
         Map<String, Object> response = new HashMap<>();
         Map<String, Object> data = new HashMap<>();
         
         if (all) {
             // 全量获取新闻
-            IPage<News> newsPage = newsService.findAll(pageRequest);
+            IPage<News> newsPage = newsService.findAll(pageRequest, domainConfig);
             data.put("list", newsPage.getRecords().stream()
                     .map(this::convertNewsToMap)
                     .collect(Collectors.toList()));
@@ -64,7 +67,7 @@ public class ApiController {
             data.put("pages", newsPage.getPages());
         } else if (categoryName != null && !categoryName.isEmpty()) {
             // 按分类查询，使用原有方法
-            IPage<News> newsPage = newsService.findByCategoryName(categoryName, pageRequest);
+            IPage<News> newsPage = newsService.findByCategoryName(categoryName, pageRequest, domainConfig);
             data.put("list", newsPage.getRecords().stream()
                     .map(this::convertNewsToMap)
                     .collect(Collectors.toList()));
@@ -72,7 +75,7 @@ public class ApiController {
             data.put("pages", newsPage.getPages());
         } else {
             // 没有关键字的情况下，按照时间和热度交叉排序
-            IPage<News> newsPage = newsService.findHotAndRecentNews(pageRequest);
+            IPage<News> newsPage = newsService.findHotAndRecentNews(pageRequest, domainConfig);
             data.put("list", newsPage.getRecords().stream()
                     .map(this::convertNewsToMap)
                     .collect(Collectors.toList()));
@@ -139,19 +142,20 @@ public class ApiController {
     @Cacheable(value = CacheConfig.CACHE_HOT_NEWS, key = "'limit:' + #limit + ':all:' + #all")
     public ResponseEntity<Map<String, Object>> getHotNews(
             @RequestParam(defaultValue = "5") int limit,
-            @RequestParam(required = false, defaultValue = "false") boolean all) {
+            @RequestParam(required = false, defaultValue = "false") boolean all,
+            @RequestParam(required = false ) String domainConfig) {
         
-        log.info("获取热门新闻: limit={}, all={}", limit, all);
+            log.info("获取热门新闻: limit={}, all={}, domainConfig={}", limit, all, domainConfig);
         
         List<News> hotNews;
         if (all) {
             // 获取所有热门新闻
             Page<News> pageRequest = new Page<>(1, Integer.MAX_VALUE);
-            hotNews = newsService.findHotNews(pageRequest);
+            hotNews = newsService.findHotNews(pageRequest,domainConfig);
         } else {
             // 获取限定数量的热门新闻
             Page<News> pageRequest = new Page<>(1, limit);
-            hotNews = newsService.findHotNews(pageRequest);
+            hotNews = newsService.findHotNews(pageRequest,domainConfig);
         }
         
         Map<String, Object> response = new HashMap<>();
@@ -185,8 +189,9 @@ public class ApiController {
      */
     @GetMapping("/tag/list")
     @Cacheable(value = CacheConfig.CACHE_TAG_LIST, key = "'limit:' + #limit")
-    public ResponseEntity<Map<String, Object>> getTagList(@RequestParam(defaultValue = "20") int limit) {
-        log.info("获取标签列表: limit={}", limit);
+    public ResponseEntity<Map<String, Object>> getTagList(@RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false, defaultValue = "0") int domainConfig) {
+        log.info("获取标签列表: limit={}, domainConfig={}", limit, domainConfig);
         
         Page<com.wiseflow.entity.Tag> pageRequest = new Page<>(1, limit);
         pageRequest.addOrder(OrderItem.desc("frequency"));
@@ -208,16 +213,17 @@ public class ApiController {
             @RequestParam String keyword,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize,
-            @RequestParam(required = false, defaultValue = "false") boolean all) {
+            @RequestParam(required = false, defaultValue = "false") boolean all,
+            @RequestParam(required = false ) String domainConfig) {
         
-        log.info("搜索新闻: keyword={}, pageNum={}, pageSize={}, all={}", keyword, pageNum, pageSize, all);
+        log.info("搜索新闻: keyword={}, pageNum={}, pageSize={}, all={}, domainConfig={}", keyword, pageNum, pageSize, all, domainConfig);
         
         Map<String, Object> response = new HashMap<>();
         Map<String, Object> data = new HashMap<>();
         
         if (all) {
             // 全量搜索，不分页
-            IPage<News> newsPage = newsService.search(keyword, new Page<>(1, Integer.MAX_VALUE));
+            IPage<News> newsPage = newsService.search(keyword, new Page<>(1, Integer.MAX_VALUE),domainConfig);
             data.put("list", newsPage.getRecords().stream()
                     .map(this::convertNewsToMap)
                     .collect(Collectors.toList()));
@@ -226,7 +232,7 @@ public class ApiController {
         } else {
             // 分页搜索
             Page<News> pageRequest = new Page<>(pageNum, pageSize);
-            IPage<News> newsPage = newsService.search(keyword, pageRequest);
+            IPage<News> newsPage = newsService.search(keyword, pageRequest,domainConfig);
             data.put("list", newsPage.getRecords().stream()
                     .map(this::convertNewsToMap)
                     .collect(Collectors.toList()));
@@ -246,8 +252,9 @@ public class ApiController {
      */
     @GetMapping("/category/{id}/count")
     @Cacheable(value = CacheConfig.CACHE_CATEGORY_NEWS_COUNT, key = "#id")
-    public ResponseEntity<Map<String, Object>> getCategoryNewsCount(@PathVariable Integer id) {
-        log.info("获取分类新闻数量: id={}", id);
+    public ResponseEntity<Map<String, Object>> getCategoryNewsCount(@PathVariable Integer id,
+            @RequestParam(required = false ) String domainConfig) {
+        log.info("获取分类新闻数量: id={}, domainConfig={}", id, domainConfig);
         
         Map<String, Object> response = new HashMap<>();
         try {
@@ -346,4 +353,53 @@ public class ApiController {
         
         return map;
     }
+
+
+
+    /**
+     * 获取文章评论列表
+     */
+    @GetMapping("/news/{newsId}/comments")
+    public ResponseEntity<Map<String, Object>> getNewsComments(
+            @PathVariable Integer newsId,
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize) {
+
+        log.info("获取文章评论: newsId={}, pageNum={}, pageSize={}", newsId, pageNum, pageSize);
+
+        // 检查文章是否存在
+        Optional<News> newsOptional = newsService.findById(newsId);
+        if (newsOptional.isEmpty()) {
+            throw new NoSuchElementException("文章不存在: " + newsId);
+        }
+
+        Page<Comment> pageRequest = new Page<>(pageNum, pageSize);
+        pageRequest.addOrder(OrderItem.desc("comment_time"));
+        
+        IPage<Comment> commentsPage = commentService.findByNewsIdPaged(newsId, pageRequest);
+
+        Map<String, Object> response = new HashMap<>();
+        Map<String, Object> data = new HashMap<>();
+        
+        data.put("list", commentsPage.getRecords().stream()
+                .map(comment -> {
+                    Map<String, Object> commentMap = new HashMap<>();
+                    commentMap.put("id", comment.getId());
+                    commentMap.put("content", comment.getContent());
+                    commentMap.put("commenterName", comment.getCommenterName());
+                    commentMap.put("commentTime", comment.getCommentTime());
+                    commentMap.put("likeCount", comment.getLikeCount());
+                    return commentMap;
+                })
+                .collect(Collectors.toList()));
+        data.put("total", commentsPage.getTotal());
+        data.put("pages", commentsPage.getPages());
+
+        response.put("code", 200);
+        response.put("message", "success");
+        response.put("data", data);
+
+        return ResponseEntity.ok(response);
+    }
+    
 } 

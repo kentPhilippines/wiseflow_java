@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章管理</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .article-content {
+            max-height: 100px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+        .search-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .pagination {
+            margin-top: 20px;
+            justify-content: center;
+        }
+        .status-badge {
+            font-size: 0.8rem;
+        }
+        .preview-image {
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: cover;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">文章管理 - <span id="currentDomain"></span></h5>
+                            <small class="text-white-50" id="articleCount"></small>
+                        </div>
+                        <button class="btn btn-sm btn-light" onclick="history.back()">
+                            <i class="bi bi-arrow-left"></i> 返回
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <!-- 搜索区域 -->
+                        <div class="search-section">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <input type="text" class="form-control" id="searchTitle" placeholder="搜索标题...">
+                                </div>
+                                <div class="col-md-2">
+                                    <select class="form-select" id="searchStatus">
+                                        <option value="">全部状态</option>
+                                        <option value="1">已发布</option>
+                                        <option value="0">未发布</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="input-group">
+                                        <input type="date" class="form-control" id="startDate">
+                                        <span class="input-group-text">至</span>
+                                        <input type="date" class="form-control" id="endDate">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-primary" id="searchBtn">
+                                        <i class="bi bi-search"></i> 搜索
+                                    </button>
+                                    <button class="btn btn-secondary" id="resetBtn">
+                                        <i class="bi bi-arrow-counterclockwise"></i> 重置
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 文章列表 -->
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>标题</th>
+                                        <th>预览图</th>
+                                        <th>发布时间</th>
+                                        <th>状态</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="articlesTableBody">
+                                    <!-- 文章数据将通过JavaScript动态加载 -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 分页 -->
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination" id="pagination">
+                                <!-- 分页将通过JavaScript动态生成 -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑文章模态框 -->
+    <div class="modal fade" id="editArticleModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑文章</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="articleForm">
+                        <input type="hidden" id="articleId">
+                        <div class="mb-3">
+                            <label for="title" class="form-label">标题</label>
+                            <input type="text" class="form-control" id="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="content" class="form-label">内容</label>
+                            <textarea class="form-control" id="content" rows="10" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="author" class="form-label">作者</label>
+                            <input type="text" class="form-control" id="author">
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="publishTime" class="form-label">发布时间</label>
+                                    <input type="datetime-local" class="form-control" id="publishTime">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="articleStatus" class="form-label">状态</label>
+                                    <select class="form-select" id="articleStatus">
+                                        <option value="1">发布</option>
+                                        <option value="0">草稿</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">文章图片</label>
+                            <div id="imageList" class="d-flex flex-wrap gap-2">
+                                <!-- 图片将在这里显示 -->
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="saveArticleBtn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // API基础URL
+        const API_BASE_URL = '/admin/api';
+        
+        // 当前域名ID和分页信息
+        let currentDomainId = null;
+        let currentPage = 1;
+        let pageSize = 10;
+        
+        // DOM元素
+        const editArticleModal = new bootstrap.Modal(document.getElementById('editArticleModal'));
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 从URL获取域名ID
+            const urlParams = new URLSearchParams(window.location.search);
+            currentDomainId = urlParams.get('domainId');
+            
+            if (!currentDomainId) {
+                alert('未指定域名ID');
+                return;
+            }
+            
+            // 加载域名信息
+            loadDomainInfo();
+            
+            // 加载文章列表
+            loadArticles();
+            
+            // 搜索按钮事件
+            document.getElementById('searchBtn').addEventListener('click', function() {
+                currentPage = 1;
+                loadArticles();
+            });
+            
+            // 重置按钮事件
+            document.getElementById('resetBtn').addEventListener('click', function() {
+                document.getElementById('searchTitle').value = '';
+                document.getElementById('searchStatus').value = '';
+                document.getElementById('startDate').value = '';
+                document.getElementById('endDate').value = '';
+                currentPage = 1;
+                loadArticles();
+            });
+            
+            // 保存文章按钮事件
+            document.getElementById('saveArticleBtn').addEventListener('click', saveArticle);
+        });
+        
+        // 加载域名信息
+        function loadDomainInfo() {
+            fetch(`${API_BASE_URL}/domain/${currentDomainId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('currentDomain').textContent = data.domain;
+                })
+                .catch(error => {
+                    console.error('Error loading domain info:', error);
+                });
+        }
+        
+        // 加载文章列表
+        function loadArticles() {
+            const searchParams = {
+                title: document.getElementById('searchTitle').value,
+                status: document.getElementById('searchStatus').value,
+                startDate: document.getElementById('startDate').value,
+                endDate: document.getElementById('endDate').value,
+                page: currentPage,
+                size: pageSize
+            };
+            
+            const queryString = new URLSearchParams(searchParams).toString();
+            
+            fetch(`${API_BASE_URL}/articles/${currentDomainId}?${queryString}`)
+                .then(response => response.json())
+                .then(data => {
+                    renderArticlesTable(data.records);
+                    renderPagination(Math.ceil(data.total / pageSize));
+                    document.getElementById('articleCount').textContent = `共 ${data.total} 篇文章`;
+                })
+                .catch(error => {
+                    console.error('Error loading articles:', error);
+                });
+        }
+        
+        // 渲染文章表格
+        function renderArticlesTable(articles) {
+            const tbody = document.getElementById('articlesTableBody');
+            tbody.innerHTML = '';
+            
+            articles.forEach(article => {
+                const row = document.createElement('tr');
+                
+                const statusBadge = article.status === 1
+                    ? '<span class="badge bg-success">已发布</span>'
+                    : '<span class="badge bg-secondary">未发布</span>';
+                
+                // 从文章内容中提取第一张图片
+           
+                row.innerHTML = `
+                    <td>${article.id}</td>
+                    <td>${article.title}</td>
+                    <td>${article.content}</td>
+                    <td>${article.publishTime}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary edit-btn" onclick="editArticle(${article.id})">
+                            <i class="bi bi-pencil"></i> 编辑
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // 渲染分页
+        function renderPagination(totalPages) {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+            
+            // 上一页
+            const prevLi = document.createElement('li');
+            prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+            prevLi.innerHTML = `
+                <a class="page-link" href="#" onclick="changePage(${currentPage - 1})">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            `;
+            pagination.appendChild(prevLi);
+            
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                li.innerHTML = `
+                    <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                `;
+                pagination.appendChild(li);
+            }
+            
+            // 下一页
+            const nextLi = document.createElement('li');
+            nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+            nextLi.innerHTML = `
+                <a class="page-link" href="#" onclick="changePage(${currentPage + 1})">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            `;
+            pagination.appendChild(nextLi);
+        }
+        
+        // 切换页码
+        function changePage(page) {
+            if (page < 1) return;
+            currentPage = page;
+            loadArticles();
+        }
+        
+        // 编辑文章
+        function editArticle(id) {
+            fetch(`${API_BASE_URL}/article/${id}`)
+                .then(response => response.json())
+                .then(article => {
+                    document.getElementById('articleId').value = article.id;
+                    document.getElementById('title').value = article.title;
+                    document.getElementById('content').value = article.content;
+                    document.getElementById('author').value = article.author;
+                    document.getElementById('publishTime').value = article.publishTime;
+                    document.getElementById('articleStatus').value = article.status;
+                    
+                    // 显示图片
+                    const imageList = document.getElementById('imageList');
+                    imageList.innerHTML = '';
+                    if (article.images && article.images.length > 0) {
+                        article.images.forEach(imageUrl => {
+                            const imgContainer = document.createElement('div');
+                            imgContainer.className = 'position-relative';
+                            imgContainer.innerHTML = `
+                                <img src="${imageUrl}" class="preview-image" alt="文章图片">
+                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0"
+                                    onclick="removeImage('${imageUrl}')">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            `;
+                            imageList.appendChild(imgContainer);
+                        });
+                    }
+                    
+                    editArticleModal.show();
+                })
+                .catch(error => {
+                    console.error('Error loading article:', error);
+                });
+        }
+        
+        // 保存文章
+        function saveArticle() {
+            const articleId = document.getElementById('articleId').value;
+            
+            const articleData = {
+                id: articleId,
+                title: document.getElementById('title').value,
+                content: document.getElementById('content').value,
+                author: document.getElementById('author').value,
+                publishTime: document.getElementById('publishTime').value,
+                status: parseInt(document.getElementById('articleStatus').value),
+                images: Array.from(document.getElementById('imageList').querySelectorAll('img'))
+                    .map(img => img.src)
+            };
+            
+            fetch(`${API_BASE_URL}/article/${articleId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(articleData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    editArticleModal.hide();
+                    loadArticles();
+                    alert('文章保存成功！');
+                })
+                .catch(error => {
+                    console.error('Error saving article:', error);
+                    alert('保存失败，请重试');
+                });
+        }
+        
+        // 移除图片
+        function removeImage(imageUrl) {
+            if (confirm('确定要移除这张图片吗？')) {
+                const imgElement = document.querySelector(`img[src="${imageUrl}"]`);
+                if (imgElement) {
+                    imgElement.parentElement.remove();
+                }
+            }
+        }
+    </script>
+</body>
+</html> 

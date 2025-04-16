@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{rule.comment}">评论规则管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        .rule-card {
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .rule-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .rule-content {
+            padding: 20px;
+        }
+        .rule-footer {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+        .preview-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .preview-comment {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        <!-- 页面标题 -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 th:text="#{rule.comment}">评论规则管理</h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ruleModal">
+                <i class="fas fa-plus me-2"></i>
+                <span th:text="#{rule.add}">添加规则</span>
+            </button>
+        </div>
+
+        <!-- 规则列表 -->
+        <div class="row" id="ruleList">
+            <!-- 规则卡片将通过JavaScript动态加载 -->
+        </div>
+
+        <!-- 规则编辑模态框 -->
+        <div class="modal fade" id="ruleModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitle" th:text="#{rule.add}">添加规则</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="ruleForm">
+                            <input type="hidden" id="ruleId">
+                            <div class="mb-3">
+                                <label for="ruleName" class="form-label" th:text="#{rule.name}">规则名称</label>
+                                <input type="text" class="form-control" id="ruleName" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="ruleDescription" class="form-label" th:text="#{rule.description}">规则描述</label>
+                                <textarea class="form-control" id="ruleDescription" rows="3"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="minCommentsPerArticle" class="form-label" th:text="#{rule.min.comments}">每篇文章最少评论数</label>
+                                <input type="number" class="form-control" id="minCommentsPerArticle" min="0" value="0">
+                            </div>
+                            <div class="mb-3">
+                                <label for="maxCommentsPerArticle" class="form-label" th:text="#{rule.max.comments}">每篇文章最多评论数</label>
+                                <input type="number" class="form-control" id="maxCommentsPerArticle" min="1" value="10">
+                            </div>
+                            <div class="mb-3">
+                                <label for="commentTimeRange" class="form-label" th:text="#{rule.time.range}">评论时间范围（小时）</label>
+                                <input type="number" class="form-control" id="commentTimeRange" min="1" value="24">
+                            </div>
+                            <div class="mb-3">
+                                <label for="keywordIncludeRate" class="form-label" th:text="#{rule.keyword.rate}">关键词包含比例（0-100）</label>
+                                <input type="number" class="form-control" id="keywordIncludeRate" min="0" max="100" value="50">
+                            </div>
+                            <div class="mb-3">
+                                <label for="minCommentLength" class="form-label" th:text="#{rule.min.length}">评论最短长度</label>
+                                <input type="number" class="form-control" id="minCommentLength" min="1" value="10">
+                            </div>
+                            <div class="mb-3">
+                                <label for="maxCommentLength" class="form-label" th:text="#{rule.max.length}">评论最长长度</label>
+                                <input type="number" class="form-control" id="maxCommentLength" min="1" value="200">
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enableAiComment" checked>
+                                    <label class="form-check-label" for="enableAiComment" th:text="#{rule.enable.ai}">
+                                        启用AI评论
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enabled" checked>
+                                    <label class="form-check-label" for="enabled" th:text="#{rule.enabled}">
+                                        启用规则
+                                    </label>
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- 预览部分 -->
+                        <div class="preview-section">
+                            <h6 th:text="#{rule.preview}">预览</h6>
+                            <div class="preview-comment" id="previewComment">
+                                <!-- 预览内容将通过JavaScript动态更新 -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" th:text="#{button.cancel}">取消</button>
+                        <button type="button" class="btn btn-primary" id="saveRuleBtn" th:text="#{button.save}">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // API基础URL
+        const API_BASE_URL = '/api/comment';
+        
+        // 当前编辑的规则ID
+        let currentRuleId = null;
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 加载规则列表
+            loadRules();
+            
+            // 保存规则按钮点击事件
+            document.getElementById('saveRuleBtn').addEventListener('click', saveRule);
+            
+            // 重置表单按钮点击事件
+            document.getElementById('ruleModal').addEventListener('hidden.bs.modal', function () {
+                resetForm();
+            });
+        });
+        
+        // 加载规则列表
+        function loadRules() {
+            fetch(API_BASE_URL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.code === 200) {
+                        renderRuleList(result.data);
+                    } else {
+                        throw new Error(result.message || '加载失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading rules:', error);
+                    alert('加载规则列表失败：' + error.message);
+                });
+        }
+        
+        // 渲染规则列表
+        function renderRuleList(rules) {
+            const ruleList = document.getElementById('ruleList');
+            ruleList.innerHTML = '';
+            
+            rules.forEach(rule => {
+                const ruleCard = document.createElement('div');
+                ruleCard.className = 'col-md-6 mb-4';
+                ruleCard.innerHTML = `
+                    <div class="card rule-card">
+                        <div class="rule-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${rule.name}</h5>
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary edit-rule" data-id="${rule.id}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-rule" data-id="${rule.id}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="rule-content">
+                            <p class="text-muted mb-3">${rule.description || '无描述'}</p>
+                            <div class="mb-2">
+                                <strong>评论数量：</strong> ${rule.minCommentsPerArticle} - ${rule.maxCommentsPerArticle} 条/文章
+                            </div>
+                            <div class="mb-2">
+                                <strong>评论长度：</strong> ${rule.minCommentLength} - ${rule.maxCommentLength} 字符
+                            </div>
+                            <div class="mb-2">
+                                <strong>时间范围：</strong> ${rule.commentTimeRange} 小时
+                            </div>
+                            <div class="mb-2">
+                                <strong>关键词比例：</strong> ${rule.keywordIncludeRate}%
+                            </div>
+                            <div class="mb-2">
+                                <strong>AI评论：</strong> ${rule.enableAiComment ? '启用' : '禁用'}
+                            </div>
+                            <div class="mb-2">
+                                <strong>状态：</strong> ${rule.enabled ? '启用' : '禁用'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // 添加编辑事件
+                ruleCard.querySelector('.edit-rule').addEventListener('click', () => editRule(rule));
+                // 添加删除事件
+                ruleCard.querySelector('.delete-rule').addEventListener('click', () => deleteRule(rule.id));
+                
+                ruleList.appendChild(ruleCard);
+            });
+        }
+        
+        // 保存规则
+        function saveRule() {
+            const rule = {
+                name: document.getElementById('ruleName').value,
+                description: document.getElementById('ruleDescription').value,
+                minCommentsPerArticle: parseInt(document.getElementById('minCommentsPerArticle').value),
+                maxCommentsPerArticle: parseInt(document.getElementById('maxCommentsPerArticle').value),
+                commentTimeRange: parseInt(document.getElementById('commentTimeRange').value),
+                keywordIncludeRate: parseInt(document.getElementById('keywordIncludeRate').value),
+                minCommentLength: parseInt(document.getElementById('minCommentLength').value),
+                maxCommentLength: parseInt(document.getElementById('maxCommentLength').value),
+                enableAiComment: document.getElementById('enableAiComment').checked,
+                enabled: document.getElementById('enabled').checked
+            };
+            
+            const method = currentRuleId ? 'PUT' : 'POST';
+            const url = currentRuleId ? `${API_BASE_URL}/${currentRuleId}` : API_BASE_URL;
+            
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(rule)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.code === 200) {
+                    // 关闭模态框
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('ruleModal'));
+                    modal.hide();
+                    // 重新加载规则列表
+                    loadRules();
+                    alert('保存成功！');
+                } else {
+                    throw new Error(result.message || '保存失败');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving rule:', error);
+                alert('保存失败：' + error.message);
+            });
+        }
+        
+        // 重置表单
+        function resetForm() {
+            currentRuleId = null;
+            document.getElementById('ruleForm').reset();
+            document.getElementById('modalTitle').textContent = '添加规则';
+        }
+        
+        // 编辑规则
+        function editRule(rule) {
+            currentRuleId = rule.id;
+            document.getElementById('modalTitle').textContent = '编辑规则';
+            document.getElementById('ruleName').value = rule.name;
+            document.getElementById('ruleDescription').value = rule.description || '';
+            document.getElementById('minCommentsPerArticle').value = rule.minCommentsPerArticle;
+            document.getElementById('maxCommentsPerArticle').value = rule.maxCommentsPerArticle;
+            document.getElementById('commentTimeRange').value = rule.commentTimeRange;
+            document.getElementById('keywordIncludeRate').value = rule.keywordIncludeRate;
+            document.getElementById('minCommentLength').value = rule.minCommentLength;
+            document.getElementById('maxCommentLength').value = rule.maxCommentLength;
+            document.getElementById('enableAiComment').checked = rule.enableAiComment;
+            document.getElementById('enabled').checked = rule.enabled;
+            
+            const modal = new bootstrap.Modal(document.getElementById('ruleModal'));
+            modal.show();
+        }
+        
+        // 删除规则
+        function deleteRule(id) {
+            if (confirm('确定要删除这条规则吗？')) {
+                fetch(`${API_BASE_URL}/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.code === 200) {
+                        loadRules();
+                        alert('删除成功！');
+                    } else {
+                        throw new Error(result.message || '删除失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting rule:', error);
+                    alert('删除失败：' + error.message);
+                });
+            }
+        }
+    </script>
+</body>
+</html> 

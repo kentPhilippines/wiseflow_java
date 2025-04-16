@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO关键词管理</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+        .card-header {
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+        .table-responsive {
+            margin-top: 15px;
+        }
+        .badge {
+            font-size: 0.8rem;
+        }
+        .action-buttons .btn {
+            margin-right: 5px;
+        }
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+        }
+        .btn-icon i {
+            margin-right: 5px;
+        }
+        .stat-card {
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-icon {
+            font-size: 24px;
+            opacity: 0.8;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+        .keyword-table th {
+            background-color: #f8f9fa;
+        }
+        .form-check-input {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">SEO关键词管理 - <span th:text="${domain}"></span></h5>
+                        <a href="/index" class="btn btn-sm btn-outline-light">
+                            <i class="bi bi-arrow-left"></i> 返回域名列表
+                        </a>
+                    </div>
+                    
+                    <!-- SEO关键词统计卡片 -->
+                    <div th:fragment="keyword-stats" class="card-body pb-0">
+                        <div class="row">
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="card stat-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="subheader">总关键词数</div>
+                                        </div>
+                                        <div class="d-flex align-items-center mt-2">
+                                            <div class="stat-icon text-primary me-3">
+                                                <i class="bi bi-hash"></i>
+                                            </div>
+                                            <div class="h1 mb-0" id="totalKeywords">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="card stat-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="subheader">主关键词数</div>
+                                        </div>
+                                        <div class="d-flex align-items-center mt-2">
+                                            <div class="stat-icon text-success me-3">
+                                                <i class="bi bi-star"></i>
+                                            </div>
+                                            <div class="h1 mb-0" id="mainKeywords">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="card stat-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="subheader">长尾关键词数</div>
+                                        </div>
+                                        <div class="d-flex align-items-center mt-2">
+                                            <div class="stat-icon text-warning me-3">
+                                                <i class="bi bi-bezier2"></i>
+                                            </div>
+                                            <div class="h1 mb-0" id="longTailKeywords">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6 col-lg-3">
+                                <div class="card stat-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center">
+                                            <div class="subheader">首页展示数</div>
+                                        </div>
+                                        <div class="d-flex align-items-center mt-2">
+                                            <div class="stat-icon text-info me-3">
+                                                <i class="bi bi-house"></i>
+                                            </div>
+                                            <div class="h1 mb-0" id="homepageKeywords">0</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SEO关键词表格和操作按钮 -->
+                    <div th:fragment="keyword-table" class="card-body">
+                        <!-- 批量操作按钮 -->
+                        <div class="d-flex mb-3">
+                            <div class="btn-group me-2">
+                                <button class="btn btn-success btn-icon" onclick="batchEnableKeywords()">
+                                    <i class="bi bi-check-circle"></i> 批量启用
+                                </button>
+                                <button class="btn btn-warning btn-icon" onclick="batchDisableKeywords()">
+                                    <i class="bi bi-x-circle"></i> 批量禁用
+                                </button>
+                                <button class="btn btn-danger btn-icon" onclick="batchDeleteKeywords()">
+                                    <i class="bi bi-trash"></i> 批量删除
+                                </button>
+                            </div>
+                            <div class="btn-group me-2">
+                                <button class="btn btn-primary btn-icon" onclick="exportKeywords()">
+                                    <i class="bi bi-download"></i> 导出关键词
+                                </button>
+                                <button class="btn btn-info btn-icon" onclick="showKeywordModal(null)">
+                                    <i class="bi bi-plus-circle"></i> 添加关键词
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 关键词表格 -->
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped keyword-table">
+                                <thead>
+                                    <tr>
+                                        <th width="40">
+                                            <input type="checkbox" class="form-check-input" onclick="toggleAllKeywords(this)">
+                                        </th>
+                                        <th>关键词</th>
+                                        <th>类型</th>
+                                        <th>权重</th>
+                                        <th>使用场景</th>
+                                        <th>文章插入次数</th>
+                                        <th>允许标题</th>
+                                        <th>评论情感</th>
+                                        <th>评论重复</th>
+                                        <th>首页展示</th>
+                                        <th>状态</th>
+                                        <th width="120">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="keywordTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 关键词编辑模态框 -->
+                    <div th:fragment="keyword-modal" class="modal modal-blur fade" id="keywordModal" tabindex="-1" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog modal-lg" role="document">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="modalTitle">关键词管理</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <form id="keywordForm">
+                                        <input type="hidden" id="keywordId">
+                                        <input type="hidden" id="domainConfigId" th:value="${domainConfigId}">
+                                        <div class="mb-3">
+                                            <label class="form-label required">关键词</label>
+                                            <input type="text" class="form-control" id="keyword" name="keyword" required>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-lg-4">
+                                                <div class="mb-3">
+                                                    <label class="form-label required">类型</label>
+                                                    <select class="form-select" id="type" name="type" required>
+                                                        <option value="1">主关键词</option>
+                                                        <option value="2">长尾关键词</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <div class="mb-3">
+                                                    <label class="form-label required">权重(1-10)</label>
+                                                    <input type="number" class="form-control" id="weight" name="weight" min="1" max="10" required>
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-4">
+                                                <div class="mb-3">
+                                                    <label class="form-label required">使用场景</label>
+                                                    <select class="form-select" id="useScene" name="useScene" required>
+                                                        <option value="1">文章内容</option>
+                                                        <option value="2">评论内容</option>
+                                                        <option value="3">两者都用</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-lg-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">最大插入次数</label>
+                                                    <input type="number" class="form-control" id="maxInsertions" name="maxInsertions" min="0">
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">允许插入标题</label>
+                                                    <select class="form-select" id="allowTitle" name="allowTitle">
+                                                        <option value="true">是</option>
+                                                        <option value="false">否</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-lg-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">评论情感</label>
+                                                    <select class="form-select" id="commentSentiment" name="commentSentiment">
+                                                        <option value="1">积极</option>
+                                                        <option value="2">中性</option>
+                                                        <option value="3">消极</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">最大重复次数</label>
+                                                    <input type="number" class="form-control" id="maxCommentRepeat" name="maxCommentRepeat" min="0">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-lg-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">首页展示</label>
+                                                    <select class="form-select" id="showOnHomepage" name="showOnHomepage">
+                                                        <option value="true">是</option>
+                                                        <option value="false">否</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-lg-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">启用</label>
+                                                    <select class="form-select" id="enabled" name="enabled">
+                                                        <option value="true">是</option>
+                                                        <option value="false">否</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">备注</label>
+                                            <textarea class="form-control" id="remark" name="remark" rows="3"></textarea>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                                    <button type="button" class="btn btn-primary" onclick="saveKeyword()">保存</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 确认删除模态框 -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">确认删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>确定要删除关键词 <span id="deleteKeywordName" class="fw-bold"></span> 吗？此操作不可恢复。</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">删除</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/seo-keywords.js"></script>
+    <script>
+        // 当页面加载完成后，初始化关键词数据
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取域名配置ID
+            const domainConfigId = document.getElementById('domainConfigId').value;
+            // 加载关键词数据
+            loadKeywords(domainConfigId);
+        });
+    </script>
+</body>
+</html> 

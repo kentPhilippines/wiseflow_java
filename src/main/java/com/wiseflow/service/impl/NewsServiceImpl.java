@@ -3,6 +3,7 @@ package com.wiseflow.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wiseflow.entity.News;
 import com.wiseflow.entity.NewsContent;
 import com.wiseflow.entity.NewsImage;
@@ -12,12 +13,16 @@ import com.wiseflow.mapper.NewsImageMapper;
 import com.wiseflow.mapper.NewsMapper;
 import com.wiseflow.mapper.TagMapper;
 import com.wiseflow.service.NewsService;
+import com.wiseflow.service.SeoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -27,15 +32,20 @@ import java.util.Optional;
  */
 @Service
 @RequiredArgsConstructor
-public class NewsServiceImpl implements NewsService {
+public class NewsServiceImpl extends ServiceImpl<NewsMapper, News> implements NewsService {
     
     private final NewsMapper newsMapper;
     private final NewsContentMapper contentMapper;
     private final NewsImageMapper imageMapper;
     private final TagMapper tagMapper;
+    private final SeoService seoService;
+    private final JdbcTemplate jdbcTemplate;
     
     @Override
-    public News save(News news) {
+    public News save1(News news) {
+        // 进行SEO优化
+        news = seoService.processSeoOptimization(news);
+        
         if (news.getId() == null) {
             newsMapper.insert(news);
         } else {
@@ -60,50 +70,50 @@ public class NewsServiceImpl implements NewsService {
     }
     
     @Override
-    public Page<News> findAll(Page<News> pageable) {
-        return newsMapper.selectNewsWithFirstImage(pageable);
+    public Page<News> findAll(Page<News> pageable,String domainConfig) {
+        return newsMapper.selectNewsWithFirstImage(pageable,domainConfig);
     }
     
     @Override
-    public IPage<News> findByCategoryId(Integer categoryId, Page<News> pageable) {
-        return newsMapper.selectByCategoryId(pageable, categoryId);
+    public IPage<News> findByCategoryId(Integer categoryId, Page<News> pageable,String domainConfig) {
+        return newsMapper.selectByCategoryId(pageable, categoryId,domainConfig);
     }
     
     @Override
-    public IPage<News> findByCategoryName(String categoryName, Page<News> pageable) {
-        return newsMapper.selectByCategoryName(pageable, categoryName);
+    public IPage<News> findByCategoryName(String categoryName, Page<News> pageable,String domainConfig) {
+        return newsMapper.selectByCategoryName(pageable, categoryName,domainConfig);
     }
     
     @Override
-    public List<News> findHotNews(Page<News> pageable) {
-        return newsMapper.selectHotNews(pageable);
+    public List<News> findHotNews(Page<News> pageable,String domainConfig) {
+        return newsMapper.selectHotNews(pageable,domainConfig);
     }
     
     @Override
-    public IPage<News> findRecommendNews(Page<News> pageable) {
-        return newsMapper.selectRecommendNews(pageable);
+    public IPage<News> findRecommendNews(Page<News> pageable,String domainConfig) {
+        return newsMapper.selectRecommendNews(pageable,domainConfig);
     }
     
     @Override
-    public List<News> findTopNews() {
-        return newsMapper.selectTopNews();
+    public List<News> findTopNews(String domainConfig) {
+        return newsMapper.selectTopNews(domainConfig);
     }
     
     @Override
-    public IPage<News> searchByTitle(String keyword, Page<News> pageable) {
-        return newsMapper.searchByTitle(pageable, keyword);
+    public IPage<News> searchByTitle(String keyword, Page<News> pageable,String domainConfig) {
+        return newsMapper.searchByTitle(pageable, keyword,domainConfig);
     }
     
     @Override
-    public IPage<News> search(String keyword, Page<News> pageable) {
-        return newsMapper.search(pageable, keyword);
+    public IPage<News> search(String keyword, Page<News> pageable,String domainConfig) {
+        return newsMapper.search(pageable, keyword,domainConfig);
     }
     
     @Override
     public IPage<News> search(String title, Integer categoryId, 
                             LocalDateTime startDate, LocalDateTime endDate, 
-                            Page<News> pageable) {
-        return newsMapper.advancedSearch(pageable, title, categoryId, startDate, endDate);
+                            Page<News> pageable,String domainConfig) {
+        return newsMapper.advancedSearch(pageable, title, categoryId, startDate, endDate,domainConfig);
     }
     
     @Override
@@ -174,14 +184,14 @@ public class NewsServiceImpl implements NewsService {
     }
     
     @Override
-    public Page<News> findAllWithImages(Page<News> pageable) {
-        return newsMapper.selectAllWithImages(pageable);
+    public Page<News> findAllWithImages(Page<News> pageable,String domainConfig) {
+        return newsMapper.selectAllWithImages(pageable,domainConfig);
     }
     
     @Override
-    public IPage<News> findHotAndRecentNews(Page<News> pageable) {
+    public IPage<News> findHotAndRecentNews(Page<News> pageable,String domainConfig) {
         // 实现按照时间和热度交叉排序的新闻查询
-        return newsMapper.selectHotAndRecentNews(pageable);
+        return newsMapper.selectHotAndRecentNews(pageable,domainConfig  );
     }
     
     @Override
@@ -213,5 +223,118 @@ public class NewsServiceImpl implements NewsService {
             newsMapper.updateById(news);
         }
         
+    }
+
+    @Override
+    public List<News> findUnassignedNews() {
+        return newsMapper.selectUnassignedNews();
+    }
+
+    @Override
+    public void updateDomain(News news) {
+        newsMapper.updateDomain(news);
+    }
+
+    @Override
+    public int countNewsByDomainAndDate(String domain, LocalDate date) {
+        LocalDateTime startTime = date.atStartOfDay();
+        LocalDateTime endTime = date.plusDays(1).atStartOfDay();
+        
+        return newsMapper.countByDomainConfigAndPublishTimeBetween(
+            domain,
+            startTime,
+            endTime
+        );
+    }
+
+    @Override
+    public int countNewsByDomainAndDateAndCategory(String domain, LocalDate date, String categoryName) {
+        return newsMapper.countByDomainAndDateAndCategory(domain, date, categoryName);
+    }
+
+    @Override
+    public News update(News news) {
+        // 进行SEO优化
+        news = seoService.processSeoOptimization(news);
+        
+        newsMapper.updateById(news);
+        return newsMapper.selectById(news.getId());
+    }
+
+    @Override
+    public IPage<News> searchWithContent(String title,
+                                       Integer categoryId,
+                                       LocalDateTime startTime,
+                                       LocalDateTime endTime,
+                                       Page<News> page,
+                                       String domain,
+                                       Integer status) {
+        return newsMapper.searchWithContent(page, domain, title, status, startTime, endTime);
+    }
+
+    @Override
+    public List<News> searchIsComment(LocalDateTime time, Integer LIMIT, String domain) {
+        return newsMapper.searchIsComment(time, LIMIT, domain);
+    }
+
+
+    @Override
+    public void isComment(Integer id, boolean b) {
+        News news = newsMapper.selectById(id);
+        if (news != null) {
+            News news1 = new News();
+            news1.setId(id);
+            news1.setIsComment(b);
+            newsMapper.updateById(news1);
+        }
+    }
+
+
+    @Override
+    public Long countUnassignedNews() {
+        LambdaQueryWrapper<News> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.isNull(News::getDomainConfig)
+                   .or()
+                   .eq(News::getDomainConfig, "");
+        return newsMapper.selectCount(queryWrapper);
+    }
+
+    @Override
+    public long count() {
+        return newsMapper.selectCount(null);
+    }
+
+    @Override
+    public List<Map<String, Object>> getArticleCounts() {
+        String sql = """
+            SELECT 
+                CASE 
+                    WHEN domain_config IS NULL OR domain_config = '' 
+                    THEN '未分配' 
+                    ELSE '已分配' 
+                END as type,
+                category_name as name,
+                COUNT(*) as value 
+            FROM wf_news 
+            GROUP BY 
+                CASE 
+                    WHEN domain_config IS NULL OR domain_config = '' 
+                    THEN '未分配' 
+                    ELSE '已分配' 
+                END,
+                category_name
+            """;
+        return jdbcTemplate.queryForList(sql);
+    }
+
+    @Override
+    public List<Map<String, Object>> getArticleTypes() {
+        String sql = "SELECT DISTINCT\n" +
+                "    id,\n" +
+                "    type_name as name\n" +
+                "FROM wf_article_type\n" +
+                "WHERE deleted = 0\n" +
+                "ORDER BY sort_order";
+        return jdbcTemplate.queryForList(sql);
     }
 } 

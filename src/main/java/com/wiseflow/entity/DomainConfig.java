@@ -58,6 +58,7 @@ public class DomainConfig {
      */
     private String icp;
     
+
     /**
      * 联系电话
      */
@@ -66,7 +67,7 @@ public class DomainConfig {
     /**
      * 模版路径
      */
-    private String viewsPath ;
+    private String viewsPath;
     
     /**
      * 联系邮箱
@@ -89,6 +90,11 @@ public class DomainConfig {
     private Integer status = 1;
     
     /**
+     * 每天新增文章数量
+     */
+    private Integer dailyAddNewsCount;
+    
+    /**
      * 创建时间
      */
     @TableField(fill = FieldFill.INSERT)
@@ -104,7 +110,19 @@ public class DomainConfig {
      * 友情链接对象，非数据库字段
      */
     @TableField(exist = false)
-    private List<FriendlyLink> friendlyLinkList = new ArrayList<>();
+    private List<FriendlyLink> friendlyLinkList;
+    
+    /**
+     * 关联的评论规则，非数据库字段
+     */
+    @TableField(exist = false)
+    private List<CommentRule> commentRules;
+    
+    /**
+     * 关联的SEO关键词，非数据库字段
+     */
+    @TableField(exist = false)
+    private List<SeoKeyword> seoKeywords;
     
     /**
      * 友情链接内部类

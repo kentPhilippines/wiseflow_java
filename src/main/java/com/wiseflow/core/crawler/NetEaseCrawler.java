@@ -147,20 +147,26 @@ public class NetEaseCrawler {
             log.warn("未找到内容，跳过: {}", url);
             return null;
         }
-        
+        // 提取发布时间
+        LocalDateTime publishTime = extractPublishTime(doc);
+
         // 提取图片
         List<String> images = extractImages(doc, config);
         if (images.isEmpty()) {
-            log.warn("未找到图片，跳过: {}", url);
-            return null;
+            // 检查发布时间是否在2个月前
+            LocalDateTime twoMonthsAgo = LocalDateTime.now().minusMonths(2);
+            if (publishTime.isAfter(twoMonthsAgo)) {
+                log.warn("未找到图片且发布时间在2个月内，跳过: {}", url);
+                return null;
+            } else {
+                log.info("文章发布时间在2个月前，允许无图片入库: {}", url);
+            }
         }
         
         // 提取作者
         String author = extractAuthor(doc, config);
         
-        // 提取发布时间
-        LocalDateTime publishTime = extractPublishTime(doc);
-        
+
         // 创建并保存新闻对象
         News news = new News();
         news.setTitle(title);
@@ -173,7 +179,7 @@ public class NetEaseCrawler {
         news.setCategoryId(category.getId());
         
         // 保存新闻主体
-        newsService.save(news);
+        newsService.save1(news);
         
         // 创建并保存新闻内容
         NewsContent newsContent = new NewsContent();
@@ -201,7 +207,8 @@ public class NetEaseCrawler {
      * 提取标题
      */
     private String extractTitle(Document doc, CrawlConfig config) {
-        Element titleElement = doc.selectFirst(config.getParseRule().getTitleSelector());
+        // 网易新闻标题通常在 h1 标签中
+        Element titleElement = doc.selectFirst("h1");
         return titleElement != null ? titleElement.text().trim() : null;
     }
     
@@ -209,34 +216,184 @@ public class NetEaseCrawler {
      * 提取内容
      */
     private String extractContent(Document doc, CrawlConfig config) {
-        Element contentElement = doc.selectFirst(config.getParseRule().getContentSelector());
+        // 网易新闻正文内容通常在 .post_body 或 .post_content 类中
+        Element contentElement = doc.selectFirst(".post_body");
         if (contentElement == null) {
             return null;
         }
         
         // 移除不需要的元素
-        contentElement.select("script, style, .gg, .ad, .recommend").remove();
+        contentElement.select("script, style, .gg, .ad, .recommend, .post_recommend, .ep-source-wrapper").remove();
         
-        return contentElement.html().trim();
+        // 处理段落
+        Elements paragraphs = contentElement.select("p");
+        for (Element p : paragraphs) {
+            // 移除空段落
+            if (p.text().trim().isEmpty() && !p.hasClass("f_center")) {
+                p.remove();
+                continue;
+            }
+            
+            // 处理段落样式
+            if (!p.hasClass("f_center")) {
+                p.attr("style", "margin: 1.5em 0; line-height: 1.75;");
+            }
+            
+            // 移除段落ID和多余属性
+            p.removeAttr("id").removeAttr("class").removeAttr("data-role");
+        }
+        
+        // 处理图片和图片描述
+        Elements imageContainers = contentElement.select("p.f_center");
+        for (Element imgContainer : imageContainers) {
+            Element img = imgContainer.selectFirst("img");
+            if (img != null) {
+                // 处理图片URL
+                String src = img.attr("src");
+                if (src.contains("?")) {
+                    src = src.substring(0, src.indexOf("?"));
+                }
+                img.attr("src", src);
+                
+                // 处理图片描述
+                String imgDesc = "";
+                Element descElement = imgContainer.selectFirst(".desc");
+                if (descElement != null) {
+                    imgDesc = descElement.text().trim();
+                    descElement.remove();
+                }
+                
+                // 重构图片容器
+                imgContainer.html("")
+                    .attr("style", "text-align: center; margin: 20px 0;")
+                    .appendChild(img.attr("style", "max-width: 100%; height: auto;"));
+                
+                // 添加图片描述
+                if (!imgDesc.isEmpty()) {
+                    imgContainer.appendElement("div")
+                        .attr("style", "color: #666; font-size: 14px; margin-top: 8px; text-align: center;")
+                        .text(imgDesc);
+                }
+            }
+        }
+        
+        // 处理引用块
+        Elements quotes = contentElement.select("blockquote");
+        for (Element quote : quotes) {
+            quote.attr("style", "margin: 1.5em 0; padding: 1em; background-color: #f5f5f5; border-left: 4px solid #ddd;");
+        }
+        
+        // 处理链接
+        Elements links = contentElement.select("a");
+        for (Element link : links) {
+            // 移除搜索相关属性
+            link.removeAttr("search-type").removeAttr("search-href");
+            // 保留href和文本
+            if (!link.hasAttr("href") || link.attr("href").trim().isEmpty()) {
+                link.unwrap(); // 如果没有有效链接，只保留文本
+            }
+        }
+        
+        // 处理强调文本
+        Elements emphases = contentElement.select("em, strong");
+        for (Element em : emphases) {
+            em.attr("style", "font-weight: bold;");
+        }
+        
+        // 移除多余的换行和空格
+        String html = contentElement.html().trim()
+            .replaceAll("(?m)^\\s+$", "") // 移除仅包含空白字符的行
+            .replaceAll("\\n\\s*\\n", "\n") // 合并多个空行
+            .replaceAll("(<br\\s*/?\\s*>\\s*){3,}", "<br><br>"); // 限制连续换行符
+            
+        return html;
     }
     
     /**
      * 提取作者
      */
     private String extractAuthor(Document doc, CrawlConfig config) {
-        Element authorElement = doc.selectFirst(config.getParseRule().getAuthorSelector());
-        return authorElement != null ? authorElement.text().trim() : "网易新闻";
+        // 从 post_author 中提取作者信息
+        Element postAuthor = doc.selectFirst(".post_author");
+        if (postAuthor != null) {
+            String authorText = postAuthor.text();
+            
+            // 尝试提取作者信息
+            Pattern authorPattern = Pattern.compile("作者[:|：]\\s*([^\\s]+)");
+            Matcher authorMatcher = authorPattern.matcher(authorText);
+            if (authorMatcher.find()) {
+                return authorMatcher.group(1).trim();
+            }
+            
+            // 尝试提取责任编辑
+            Pattern editorPattern = Pattern.compile("责任编辑[:|：]\\s*([^\\s]+)");
+            Matcher editorMatcher = editorPattern.matcher(authorText);
+            if (editorMatcher.find()) {
+                String editor = editorMatcher.group(1).trim();
+                // 移除编辑ID后缀（如 _NS1098）
+                return editor.replaceAll("_[A-Z0-9]+$", "");
+            }
+            
+            // 尝试提取来源
+            Pattern sourcePattern = Pattern.compile("本文来源[:|：]\\s*([^\\s]+)");
+            Matcher sourceMatcher = sourcePattern.matcher(authorText);
+            if (sourceMatcher.find()) {
+                return sourceMatcher.group(1).trim();
+            }
+        }
+        
+        // 从 post_info 中提取来源信息作为备选
+        Element postInfo = doc.selectFirst(".post_info");
+        if (postInfo != null) {
+            String infoText = postInfo.ownText();
+            Pattern sourcePattern = Pattern.compile("来源[:|：]\\s*([^\\s]+)");
+            Matcher matcher = sourcePattern.matcher(infoText);
+            if (matcher.find()) {
+                return matcher.group(1).trim();
+            }
+        }
+        
+        // 其他备用选择器
+        String[] backupSelectors = {".ep-source"};
+        for (String selector : backupSelectors) {
+            Element authorElement = doc.selectFirst(selector);
+            if (authorElement != null) {
+                String author = authorElement.text().trim();
+                author = author.replaceAll("^(来源[:|：]|作者[:|：]|本文来源[:|：])\\s*", "");
+                if (!author.isEmpty()) {
+                    return author;
+                }
+            }
+        }
+        
+        return "网易新闻";
     }
     
     /**
      * 提取发布时间
      */
     private LocalDateTime extractPublishTime(Document doc) {
-        // 尝试从多个可能的元素中提取时间
-        Elements timeElements = doc.select(".post_time, .time, .date, .publish_time");
+        // 从 post_info 中提取时间
+        Element postInfo = doc.selectFirst(".post_info");
+        if (postInfo != null) {
+            String infoText = postInfo.ownText();  // 获取不包含子元素的文本
+            Matcher matcher = DATE_PATTERN.matcher(infoText);
+            if (matcher.find()) {
+                try {
+                    return LocalDateTime.parse(matcher.group(1), 
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                } catch (Exception e) {
+                    log.debug("解析时间失败: {}", infoText);
+                }
+            }
+        }
         
+        // 备用时间选择器
+        Elements timeElements = doc.select(".pub-time, .post_time");
         for (Element element : timeElements) {
             String timeText = element.text().trim();
+            timeText = timeText.replaceAll("^(发布时间[:|：]|更新时间[:|：])\\s*", "");
+            
             Matcher matcher = DATE_PATTERN.matcher(timeText);
             if (matcher.find()) {
                 try {
@@ -248,7 +405,6 @@ public class NetEaseCrawler {
             }
         }
         
-        // 如果没有找到时间，返回当前时间
         return LocalDateTime.now();
     }
     
@@ -257,20 +413,72 @@ public class NetEaseCrawler {
      */
     private List<String> extractImages(Document doc, CrawlConfig config) {
         List<String> images = new ArrayList<>();
-        Elements imageElements = doc.select(config.getParseRule().getImageSelector());
+        Set<String> uniqueImages = new HashSet<>();  // 用于去重
         
-        for (Element img : imageElements) {
-            String src = img.absUrl("src");
-            if (StringUtils.isNotBlank(src)) {
-                // 处理相对路径
-                if (src.startsWith("//")) {
-                    src = "https:" + src;
+        // 处理正文中的图片
+        Elements imageContainers = doc.select(".post_body p.f_center, .post_content p.f_center");
+        for (Element container : imageContainers) {
+            Element img = container.selectFirst("img");
+            if (img != null) {
+                String imgUrl = processImageUrl(img.attr("src"));
+                if (imgUrl != null && uniqueImages.add(imgUrl)) {  // 确保不重复添加
+                    images.add(imgUrl);
                 }
-                images.add(src);
+            }
+        }
+        
+        // 如果正文中没有找到图片，尝试其他位置
+        if (images.isEmpty()) {
+            Elements allImages = doc.select(".post_body img, .post_content img");
+            for (Element img : allImages) {
+                // 优先获取原图URL
+                String src = img.hasAttr("data-src") ? img.attr("data-src") : img.attr("src");
+                String imgUrl = processImageUrl(src);
+                if (imgUrl != null && uniqueImages.add(imgUrl)) {
+                    images.add(imgUrl);
+                }
             }
         }
         
         return images;
+    }
+    
+    /**
+     * 处理图片URL
+     */
+    private String processImageUrl(String url) {
+        if (StringUtils.isBlank(url)) {
+            return null;
+        }
+        
+        // 处理相对路径
+        if (url.startsWith("//")) {
+            url = "https:" + url;
+        }
+        
+        // 解析URL中的实际图片地址
+        if (url.contains("?url=")) {
+            try {
+                // 提取实际图片URL
+                String encodedUrl = url.substring(url.indexOf("?url=") + 5);
+                if (encodedUrl.contains("&")) {
+                    encodedUrl = encodedUrl.substring(0, encodedUrl.indexOf("&"));
+                }
+                // URL解码
+                url = java.net.URLDecoder.decode(encodedUrl, "UTF-8");
+            } catch (Exception e) {
+                log.warn("解析图片URL失败: {}", url);
+                return null;
+            }
+        }
+        
+        // 过滤条件
+        if (url.contains("icon") || url.contains("logo") || 
+            url.contains("avatar") || !url.contains("126.net")) {
+            return null;
+        }
+        
+        return url;
     }
     
     /**

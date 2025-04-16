@@ -260,6 +260,42 @@ public class ApiDocController {
         searchNewsResponse.put("data", searchNewsData);
         searchNews.put("response", searchNewsResponse);
         
+        // 添加评论列表API
+        Map<String, Object> newsComments = new HashMap<>();
+        newsComments.put("url", "/api/news/{newsId}/comments");
+        newsComments.put("method", "GET");
+        newsComments.put("description", "获取文章评论列表");
+        
+        Map<String, Object> newsCommentsParams = new HashMap<>();
+        newsCommentsParams.put("newsId", "文章ID，必填，路径参数");
+        newsCommentsParams.put("pageNum", "页码，默认1");
+        newsCommentsParams.put("pageSize", "每页大小，默认10");
+        newsComments.put("params", newsCommentsParams);
+        
+        Map<String, Object> newsCommentsResponse = new HashMap<>();
+        newsCommentsResponse.put("code", 200);
+        newsCommentsResponse.put("message", "success");
+        
+        Map<String, Object> newsCommentsData = new HashMap<>();
+        List<Map<String, Object>> commentItems = new ArrayList<>();
+        
+        for (int i = 1; i <= 3; i++) {
+            Map<String, Object> comment = new HashMap<>();
+            comment.put("id", i);
+            comment.put("content", "这是一条评论，内容很精彩，讨论了文章中的观点..." + i);
+            comment.put("commenterName", "读者" + i);
+            comment.put("commentTime", LocalDateTime.now().minusHours(i).format(DATE_FORMATTER));
+            comment.put("likeCount", 5 + i);
+            commentItems.add(comment);
+        }
+        
+        newsCommentsData.put("list", commentItems);
+        newsCommentsData.put("total", 12);
+        newsCommentsData.put("pages", 4);
+        
+        newsCommentsResponse.put("data", newsCommentsData);
+        newsComments.put("response", newsCommentsResponse);
+        
         // 修改API文档：分页查询新闻（按时间和热度交叉排序）
         Map<String, Object> allNews = new HashMap<>();
         allNews.put("url", "/api/news");
@@ -289,6 +325,7 @@ public class ApiDocController {
         docs.put("newsDetail", newsDetail);
         docs.put("hotNews", hotNews);
         docs.put("searchNews", searchNews);
+        docs.put("newsComments", newsComments);
         docs.put("allNews", allNews);
         
         return docs;

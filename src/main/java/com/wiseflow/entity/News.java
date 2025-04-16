@@ -22,6 +22,9 @@ public class News {
     
     private String source;
     
+    /**
+     * 作者
+     */
     private String author;
     
     private String url;
@@ -45,6 +48,25 @@ public class News {
     
     private Boolean isRecommend = false;
     
+    private String domainConfig;
+
+    /**
+     * 是否需要AI改写
+     */
+    private Boolean needRewrite = false;
+    /**
+     * 改写状态：
+     * PENDING - 待处理
+     * PROCESSING - 处理中 
+     * COMPLETED - 已完成
+     * FAILED - 失败
+     */
+    private String rewriteStatus;
+    /**
+     * 改写后的新闻ID
+     */
+    private Integer rewrittenNewsId;
+    
     private Integer viewCount = 0;
     
     private Integer commentCount = 0;
@@ -66,6 +88,16 @@ public class News {
     
     @TableField(exist = false)
     private String coverImage;
+    
+
+    /**
+     * 是否允许评论
+     */
+    private Boolean isComment = false;
+    
+    // -- SQL语句:
+    // -- ALTER TABLE wf_news ADD COLUMN is_comment TINYINT(1) DEFAULT 0 COMMENT '是否允许评论';
+
     
     // 添加图片的便捷方法
     public void addImage(NewsImage image) {

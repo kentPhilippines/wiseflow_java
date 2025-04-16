@@ -65,6 +65,32 @@
             margin-right: 15px;
             text-decoration: none;
         }
+        .stat-card {
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+            margin-bottom: 20px;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card .card-body {
+            padding: 20px;
+        }
+        .stat-card .card-title {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+        .stat-card .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 0;
+        }
+        .stat-card .stat-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -75,6 +101,17 @@
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">域名配置管理</h5>
                         <div>
+                            <div class="btn-group me-2" id="batchOperations" style="display: none;">
+                                <button class="btn btn-sm btn-light" id="batchEnableBtn">
+                                    <i class="bi bi-check-circle"></i> 批量启用
+                                </button>
+                                <button class="btn btn-sm btn-light" id="batchDisableBtn">
+                                    <i class="bi bi-x-circle"></i> 批量禁用
+                                </button>
+                                <button class="btn btn-sm btn-danger" id="batchDeleteBtn">
+                                    <i class="bi bi-trash"></i> 批量删除
+                                </button>
+                            </div>
                             <button class="btn btn-sm btn-outline-light me-2" id="downloadTemplateBtn">
                                 <i class="bi bi-download"></i> 下载模板
                             </button>
@@ -94,10 +131,16 @@
                             <table class="table table-striped table-hover">
                                 <thead>
                                     <tr>
-                                        <th>ID</th>
+                                        <th>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="selectAll">
+                                            </div>
+                                        </th>
                                         <th>域名</th>
                                         <th>标题</th>
-                                        <th>模板路径</th>
+                                        <th>描述</th>
+                                        <th>关键词</th>
+                                        <th>模板</th>
                                         <th>状态</th>
                                         <th>创建时间</th>
                                         <th>操作</th>
@@ -151,7 +194,46 @@
                                 </div>
                             </div>
                         </div>
-                        
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="description" class="form-label">网站描述</label>
+                                    <textarea class="form-control" id="description" rows="3"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="keywords" class="form-label">关键词</label>
+                                    <input type="text" class="form-control" id="keywords" placeholder="多个关键词请用英文逗号分隔">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="template" class="form-label">模板路径</label>
+                                    <select class="form-select" id="template">
+                                        <option value="default">默认模板</option>
+                                        <option value="news">新闻模板</option>
+                                        <option value="blog">博客模板</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> 其他配置项将自动生成，您可以在保存后进行修改。
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row mt-3">
                             <div class="col-12">
                                 <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedOptions" aria-expanded="false">
@@ -162,93 +244,88 @@
                         </div>
                         
                         <div class="collapse mt-3" id="advancedOptions">
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <div class="form-group">
-                                        <label for="description" class="form-label">网站描述</label>
-                                        <textarea class="form-control" id="description" rows="2"></textarea>
-                                    </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="dailyAddNewsCount" class="form-label">每天新增文章数量</label>
+                                    <input type="number" class="form-control" id="dailyAddNewsCount" min="50" value="50">
+                                    <small class="form-text text-muted">每天最少需要新增50篇文章</small>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <div class="form-group">
-                                        <label for="keywords" class="form-label">关键词（多个关键词用逗号分隔）</label>
-                                        <input type="text" class="form-control" id="keywords">
-                                    </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="logoUrl" class="form-label">Logo URL</label>
+                                    <input type="text" class="form-control" id="logoUrl">
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="logoUrl" class="form-label">Logo URL</label>
-                                        <input type="text" class="form-control" id="logoUrl">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="faviconUrl" class="form-label">Favicon URL</label>
-                                        <input type="text" class="form-control" id="faviconUrl">
-                                    </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="faviconUrl" class="form-label">Favicon URL</label>
+                                    <input type="text" class="form-control" id="faviconUrl">
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="copyright" class="form-label">版权信息</label>
-                                        <input type="text" class="form-control" id="copyright">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="icp" class="form-label">备案号</label>
-                                        <input type="text" class="form-control" id="icp">
-                                    </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="copyright" class="form-label">版权信息</label>
+                                    <input type="text" class="form-control" id="copyright">
                                 </div>
                             </div>
-
-                            <div class="row">
-                                <div class="col-md-12">
-                                    <div class="form-group">
-                                        <label for="viewsPath" class="form-label">模板路径</label>
-                                        <input type="text" class="form-control" id="viewsPath">
-                                    </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="icp" class="form-label">备案号</label>
+                                    <input type="text" class="form-control" id="icp">
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="contactPhone" class="form-label">联系电话</label>
-                                        <input type="text" class="form-control" id="contactPhone">
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="contactEmail" class="form-label">联系邮箱</label>
-                                        <input type="email" class="form-control" id="contactEmail">
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-group">
-                                        <label for="contactAddress" class="form-label">联系地址</label>
-                                        <input type="text" class="form-control" id="contactAddress">
-                                    </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="viewsPath" class="form-label">模板路径</label>
+                                    <input type="text" class="form-control" id="viewsPath">
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="row mt-3">
-                                <div class="col-12">
-                                    <h5>友情链接</h5>
-                                    <div id="friendlyLinksContainer">
-                                        <!-- 友情链接将在这里动态添加 -->
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="addLinkBtn">
-                                        <i class="bi bi-plus-circle"></i> 添加友情链接
-                                    </button>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="contactPhone" class="form-label">联系电话</label>
+                                    <input type="text" class="form-control" id="contactPhone">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="contactEmail" class="form-label">联系邮箱</label>
+                                    <input type="email" class="form-control" id="contactEmail">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="contactAddress" class="form-label">联系地址</label>
+                                    <input type="text" class="form-control" id="contactAddress">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <h5>友情链接</h5>
+                                <div id="friendlyLinksContainer">
+                                    <!-- 友情链接将在这里动态添加 -->
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="addLinkBtn">
+                                    <i class="bi bi-plus-circle"></i> 添加友情链接
+                                </button>
                                 </div>
                             </div>
                         </div>
@@ -360,7 +437,9 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/seo-keywords.js"></script>
     <script>
         // API基础URL
         const API_BASE_URL = '/admin/config';
@@ -390,6 +469,7 @@
             contactEmail: "contact@example.com",
             contactAddress: "默认地址",
             status: 1,
+            dailyAddNewsCount: 50,
             friendlyLinkList: [
                 {
                     name: "示例链接1",
@@ -487,20 +567,38 @@
             configurations.forEach(config => {
                 const row = document.createElement('tr');
                 
-                const statusBadge = config.status === 1 
-                    ? '<span class="badge bg-success status-badge">启用</span>' 
-                    : '<span class="badge bg-danger status-badge">禁用</span>';
+                const statusSwitch = `
+                    <div class="form-check form-switch">
+                        <input class="form-check-input status-switch" type="checkbox" 
+                            data-id="${config.id}" 
+                            ${config.status === 1 ? 'checked' : ''}>
+                    </div>`;
                 
                 row.innerHTML = `
-                    <td>${config.id}</td>
+                    <td>
+                        <div class="form-check">
+                            <input class="form-check-input row-checkbox" type="checkbox" data-id="${config.id}">
+                        </div>
+                    </td>
                     <td>${config.domain}</td>
                     <td>${config.title}</td>
+                    <td>${config.description || '-'}</td>
+                    <td>${config.keywords || '-'}</td>
                     <td>${config.viewsPath || '-'}</td>
-                    <td>${statusBadge}</td>
+                    <td>${statusSwitch}</td>
                     <td>${config.createTime}</td>
                     <td class="action-buttons">
                         <button class="btn btn-sm btn-primary edit-btn" data-id="${config.id}">
                             <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-warning" onclick="showConfigModal('keyword', ${config.id}, '${config.domain}')">
+                            <i class="bi bi-tags"></i> 关键词
+                        </button>
+                        <button class="btn btn-sm btn-secondary" onclick="showConfigModal('comment', ${config.id}, '${config.domain}')">
+                            <i class="bi bi-chat-dots"></i> 评论规则
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="showConfigModal('article', ${config.id}, '${config.domain}')">
+                            <i class="bi bi-file-earmark-text"></i> 文章
                         </button>
                         <button class="btn btn-sm btn-danger delete-btn" data-id="${config.id}" data-domain="${config.domain}">
                             <i class="bi bi-trash"></i>
@@ -526,6 +624,157 @@
                     const domain = this.getAttribute('data-domain');
                     showDeleteConfirmation(id, domain);
                 });
+            });
+
+            // 添加状态开关事件
+            document.querySelectorAll('.status-switch').forEach(switchEl => {
+                switchEl.addEventListener('change', function() {
+                    const id = this.getAttribute('data-id');
+                    const newStatus = this.checked ? 1 : 0;
+                    updateStatus(id, newStatus);
+                });
+            });
+
+            // 添加复选框相关事件
+            setupCheckboxEvents();
+        }
+        
+        // 设置复选框相关事件
+        function setupCheckboxEvents() {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+            const batchOperations = document.getElementById('batchOperations');
+
+            // 全选/取消全选
+            selectAllCheckbox.addEventListener('change', function() {
+                rowCheckboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+                updateBatchOperationsVisibility();
+            });
+
+            // 单个复选框变化
+            rowCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    updateSelectAllCheckbox();
+                    updateBatchOperationsVisibility();
+                });
+            });
+
+            // 批量操作按钮事件
+            document.getElementById('batchEnableBtn').addEventListener('click', () => batchUpdateStatus(1));
+            document.getElementById('batchDisableBtn').addEventListener('click', () => batchUpdateStatus(0));
+            document.getElementById('batchDeleteBtn').addEventListener('click', batchDelete);
+        }
+
+        // 更新全选复选框状态
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            
+            selectAllCheckbox.checked = checkedCount === rowCheckboxes.length;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
+        }
+
+        // 更新批量操作按钮的显示状态
+        function updateBatchOperationsVisibility() {
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            const batchOperations = document.getElementById('batchOperations');
+            batchOperations.style.display = checkedCount > 0 ? 'inline-flex' : 'none';
+        }
+
+        // 更新单个配置状态
+        function updateStatus(id, status) {
+            fetch(`${API_BASE_URL}/domain/${id}/status?status=${status}`, {
+                method: 'PUT'
+            })
+                .then(response => {
+                    if (response.ok) {
+                        // 可以添加成功提示
+                        console.log('状态更新成功');
+                    } else {
+                        throw new Error('状态更新失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating status:', error);
+                    alert('状态更新失败，请重试');
+                    // 恢复开关状态
+                    const switchEl = document.querySelector(`.status-switch[data-id="${id}"]`);
+                    if (switchEl) {
+                        switchEl.checked = status === 0;
+                    }
+                });
+        }
+
+        // 批量更新状态
+        function batchUpdateStatus(status) {
+            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+                .map(checkbox => checkbox.getAttribute('data-id'));
+            
+            if (selectedIds.length === 0) return;
+
+            Promise.all(selectedIds.map(id => 
+                fetch(`${API_BASE_URL}/domain/${id}/status?status=${status}`, {
+                    method: 'PUT'
+                })
+            ))
+                .then(responses => {
+                    if (responses.every(response => response.ok)) {
+                        loadConfigurations();
+                        alert(`批量${status === 1 ? '启用' : '禁用'}成功！`);
+                    } else {
+                        throw new Error('部分更新失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error batch updating status:', error);
+                    alert('批量更新状态失败，请重试');
+                    loadConfigurations();
+                });
+        }
+
+        // 批量删除
+        function batchDelete() {
+            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+                .map(checkbox => checkbox.getAttribute('data-id'));
+            
+            if (selectedIds.length === 0) {
+                alert('请选择要删除的配置');
+                return;
+            }
+
+            if (!confirm(`确定要删除选中的 ${selectedIds.length} 个配置吗？此操作不可恢复。`)) {
+                return;
+            }
+
+            // 修改为使用 POST 请求，并添加正确的请求头和错误处理
+            fetch(`${API_BASE_URL}/domain/batch-delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(selectedIds)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(result => {
+                if (result.success) {
+                    loadConfigurations();
+                    alert('批量删除成功！');
+                } else {
+                    throw new Error(result.message || '批量删除失败');
+                }
+            })
+            .catch(error => {
+                console.error('批量删除错误:', error);
+                alert('批量删除失败：' + error.message);
             });
         }
         
@@ -558,6 +807,7 @@
                         contactEmail: 'contact@example.com',
                         contactAddress: '北京市海淀区中关村',
                         status: 1,
+                        dailyAddNewsCount: 0,
                         friendlyLinkList: [
                             {
                                 name: '百度',
@@ -595,6 +845,7 @@
             document.getElementById('contactEmail').value = config.contactEmail || '';
             document.getElementById('contactAddress').value = config.contactAddress || '';
             document.getElementById('status').value = config.status;
+            document.getElementById('dailyAddNewsCount').value = config.dailyAddNewsCount || 0;
             
             // 清空友情链接容器
             const linksContainer = document.getElementById('friendlyLinksContainer');
@@ -649,6 +900,7 @@
                 contactEmail: document.getElementById('contactEmail').value || defaultTemplate.contactEmail,
                 contactAddress: document.getElementById('contactAddress').value || defaultTemplate.contactAddress,
                 status: parseInt(document.getElementById('status').value),
+                dailyAddNewsCount: parseInt(document.getElementById('dailyAddNewsCount').value) || 0,
                 friendlyLinkList: collectFriendlyLinks().length > 0 ? collectFriendlyLinks() : defaultTemplate.friendlyLinkList
             };
             
@@ -1066,6 +1318,251 @@
                     console.error('Error saving template:', error);
                 });
         }
+
+        // 通用配置弹窗函数
+        function showConfigModal(type, id, domain) {
+            const modalTitle = {
+                'keyword': 'SEO关键词配置',
+                'comment': '评论规则配置',
+                'article': '文章规则配置'
+            }[type];
+
+            const modal = createModal(modalTitle);
+            
+            // 加载配置数据
+            $.get(`/api/${type === 'keyword' ? 'seo/keywords' : type === 'comment' ? 'comment/rules' : 'articles/list'}?domain=${domain}`)
+                .done(function(data) {
+                    renderConfigList(modal, data, type, id, domain);
+                })
+                .fail(function(jqXHR) {
+                    showError(`加载${modalTitle}失败: ${jqXHR.status}`);
+                });
+        }
+
+        // 创建模态框
+        function createModal(title) {
+            const modalHtml = `
+                <div class="modal fade" id="configModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${title}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="config-list"></div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                                <button type="button" class="btn btn-primary save-config">保存</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            $('#configModal').remove();
+            $(document.body).append(modalHtml);
+            
+            return new bootstrap.Modal('#configModal');
+        }
+
+        // 渲染配置列表
+        function renderConfigList(modal, items, type, id, domain) {
+            const configList = $('.config-list');
+            configList.empty();
+            
+            // 根据不同类型创建不同的展示内容
+            items.forEach(item => {
+                let content = '';
+                switch(type) {
+                    case 'keyword':
+                        content = `
+                            <div class="list-group-item hover-shadow rounded p-3 mb-2">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="item-${item.id}" data-id="${item.id}" ${item.isInserted ? 'checked' : ''}>
+                                    <label class="form-check-label w-100" for="item-${item.id}">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="badge bg-primary">
+                                                ID: ${item.id}
+                                            </div>
+                                            <div class="flex-grow-1 mx-3">
+                                                <h6 class="mb-1">${item.remark}</h6>
+                                                <div class="d-flex align-items-center">
+                                                    <span class="badge bg-info me-2">
+                                                        ${item.type === 1 ? '主关键词' : '长尾关键词'}
+                                                    </span>
+                                                    <span class="badge bg-secondary">
+                                                        ${getUseSceneText(item.useScene)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="text-muted border-start ps-3">
+                                                <small class="d-block">最大插入次数</small>
+                                                <strong>${item.maxInsertions}</strong>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    
+                    case 'comment':
+                        content = `
+                            <div class="list-group-item hover-shadow rounded p-3 mb-2">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="item-${item.id}" data-id="${item.id}" ${item.isInserted ? 'checked' : ''}>
+                                    <label class="form-check-label w-100" for="item-${item.id}">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="badge bg-primary">ID: ${item.id}</div>
+                                            <div class="flex-grow-1 mx-3">
+                                                <h6 class="mb-1">${item.name}</h6>
+                                                <p class="mb-1 text-muted">${item.description}</p>
+                                                <div class="d-flex align-items-center">
+                                                    <span class="badge bg-info">
+                                                        评论数量: ${item.minCommentsPerArticle}-${item.maxCommentsPerArticle}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="text-muted border-start ps-3">
+                                                <small class="d-block">备注</small>
+                                                <strong>${item.description}</strong>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                    
+                    case 'article':
+                        content = `
+                            <div class="list-group-item hover-shadow rounded p-3 mb-2">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="item-${item.id}" data-id="${item.id}" ${item.isInserted ? 'checked' : ''}>
+                                    <label class="form-check-label w-100" for="item-${item.id}">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div class="badge bg-primary">ID: ${item.id}</div>
+                                            <div class="flex-grow-1 mx-3">
+                                                <h6 class="mb-1">${item.name}</h6>
+                                                <p class="mb-1 text-muted">${item.remark || ''}</p>
+                                                <div class="d-flex align-items-center flex-wrap">
+                                                    <span class="badge bg-info mb-1" style="white-space: normal; word-break: break-all;">
+                                                        配置规则:<br/>
+                                                        ${formatRuleConfig(item.ruleConfig)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        `;
+                        break;
+                }
+                configList.append(content);
+            });
+
+            // 保存按钮事件
+            $('.save-config').off('click').on('click', function() {
+                const selectedIds = [];
+                configList.find('input:checked').each(function() {
+                    selectedIds.push($(this).data('id'));
+                });
+                
+                saveConfig(id, selectedIds, type, domain, modal);
+            });
+
+            modal.show();
+        }
+
+        // 获取使用场景文本
+        function getUseSceneText(useScene) {
+            switch(useScene) {
+                case 1: return '文章内容';
+                case 2: return '评论';
+                case 3: return '文章和评论';
+                default: return '未知';
+            }
+        }
+
+        // 格式化规则配置
+        function formatRuleConfig(ruleConfig) {
+            try {
+                const config = JSON.parse(ruleConfig);
+                return config.map(rule => 
+                    `${rule.typeId}(${rule.minCount}-${rule.maxCount})`
+                ).join(', ');
+            } catch (e) {
+                return '配置解析失败';
+            }
+        }
+
+        // 保存配置
+        function saveConfig(id, selectedIds, type, domain, modal) {
+            $.ajax({
+                url: `/api/domain/${id}/config/${type}`,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    domain: domain,
+                    configIds: selectedIds
+                })
+            })
+            .done(function(response) {
+                if (response.code === 200) {
+                    modal.hide();
+                    showSuccess('配置保存成功');
+                } else {
+                    showError(response.message || '保存失败');
+                }
+            })
+            .fail(function(jqXHR) {
+                showError(`保存失败: ${jqXHR.status}`);
+            });
+        }
+
+        // 显示成功提示
+        function showSuccess(message) {
+            const toast = $(`
+                <div class="toast align-items-center text-white bg-success border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `);
+            showToast(toast);
+        }
+
+        // 显示错误提示
+        function showError(message) {
+            const toast = $(`
+                <div class="toast align-items-center text-white bg-danger border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `);
+            showToast(toast);
+        }
+
+        // 显示提示框
+        function showToast(toast) {
+            const container = $('.toast-container');
+            if (container.length === 0) {
+                $('body').append('<div class="toast-container position-fixed top-0 end-0 p-3"></div>');
+            }
+            $('.toast-container').append(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            toast.on('hidden.bs.toast', () => toast.remove());
+        }
     </script>
 </body>
 </html>
+
+
+ 
