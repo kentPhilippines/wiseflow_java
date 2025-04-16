@@ -212,12 +212,6 @@ public interface NewsMapper extends BaseMapper<News> {
                                 @Param("startTime") LocalDateTime startTime,
                                 @Param("endTime") LocalDateTime endTime);
 
-
-
-
-
-
-
     @Select("SELECT * FROM wf_news WHERE is_comment = 0 AND domain_config = #{domain} AND publish_time >= #{time} ORDER BY id ASC LIMIT #{LIMIT}")
     List<News> searchIsComment(@Param("time") LocalDateTime time, @Param("LIMIT") Integer LIMIT, @Param("domain") String domain);
 
@@ -236,4 +230,16 @@ public interface NewsMapper extends BaseMapper<News> {
             "END, " +
             "category_name")
     List<Map<String, Object>> selectArticleCounts();
+
+    /**
+     * 获取最早的文章时间
+     */
+    @Select("SELECT MIN(publish_time) FROM wf_news")
+    LocalDateTime selectEarliestNewsTime();
+    
+    /**
+     * 获取最新的文章时间
+     */
+    @Select("SELECT MAX(publish_time) FROM wf_news")
+    LocalDateTime selectLatestNewsTime();
 }

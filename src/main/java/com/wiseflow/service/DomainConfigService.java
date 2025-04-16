@@ -1,6 +1,6 @@
 package com.wiseflow.service;
 
-import com.wiseflow.entity.DomainConfig;
+import com.wiseflow.entity.*;
 import com.wiseflow.dto.DomainConfigRequest;
 import java.util.List;
 import java.util.Optional;
@@ -98,4 +98,19 @@ public interface DomainConfigService {
      * 保存域名文章配置
      */
     void saveArticleConfig(Long domainId, DomainConfigRequest request);
+
+    /**
+     * 获取所有域名的SEO关键词配置
+     */
+    List<SeoKeyword> getAllDomainKeywords(DomainConfig domainConfig);
+
+    /**
+     * 获取所有域名的评论规则配置
+     */
+    List<CommentRule> getAllDomainCommentRules(DomainConfig domainConfig);
+
+    /**
+     * 获取所有域名的文章配置
+     */
+    List<ArticleRule> getAllDomainArticleConfigs(DomainConfig domainConfig);
 } 

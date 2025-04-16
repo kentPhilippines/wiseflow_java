@@ -87,5 +87,12 @@ public class SeoKeyword {
     private Boolean isInserted;
 
 
+
+    /**
+     * 关键词
+     */
+    @TableField(exist = false)
+    private String keyword;
+
     
 } 

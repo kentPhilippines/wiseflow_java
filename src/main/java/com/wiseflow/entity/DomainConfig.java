@@ -149,4 +149,22 @@ public class DomainConfig {
          */
         private Integer sort = 0;
     }
+
+
+
+    public List<String> getKeywordsSeo(){
+        if(keywords == null || keywords.isEmpty()){
+            return new ArrayList<>();
+        }
+        String[] keywordsArray = keywords.split("[,，;；|｜\\s/／、~～@#$%^&*()（）{}【】\\[\\]\\-_=+]+");
+        List<String> keywordsSeo = new ArrayList<>();
+        for(String keyword : keywordsArray){
+            if(!keyword.trim().isEmpty()) {
+                keywordsSeo.add(keyword.trim());
+            }
+        }
+        return keywordsSeo;
+    }
+
+    
 } 

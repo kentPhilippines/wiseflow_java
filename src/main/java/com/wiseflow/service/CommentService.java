@@ -3,6 +3,7 @@ package com.wiseflow.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wiseflow.entity.Comment;
+import com.wiseflow.entity.CommentRule;
 
 import java.util.List;
 
@@ -76,5 +77,5 @@ public interface CommentService {
      * @param newsId 文章ID
      * @param count 生成数量
      */
-    void generateAiComments(Integer newsId, int count);
+    void generateAiComments(Integer newsId, int count, List<CommentRule> byDomainConfig);
 } 

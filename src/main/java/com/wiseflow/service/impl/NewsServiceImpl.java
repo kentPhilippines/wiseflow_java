@@ -15,6 +15,7 @@ import com.wiseflow.mapper.TagMapper;
 import com.wiseflow.service.NewsService;
 import com.wiseflow.service.SeoService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +31,7 @@ import java.util.Optional;
  * 新闻服务实现类
  * 使用MyBatis-Plus实现，不使用事务管理
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class NewsServiceImpl extends ServiceImpl<NewsMapper, News> implements NewsService {
@@ -336,5 +338,74 @@ public class NewsServiceImpl extends ServiceImpl<NewsMapper, News> implements Ne
                 "WHERE deleted = 0\n" +
                 "ORDER BY sort_order";
         return jdbcTemplate.queryForList(sql);
+    }
+
+    @Override
+    public LocalDateTime getEarliestNewsTime() {
+        return newsMapper.selectEarliestNewsTime();
+    }
+
+    @Override
+    public LocalDateTime getLatestNewsTime() {
+        return newsMapper.selectLatestNewsTime();
+    }
+
+    @Override
+    public int countAssignedNews(String domain, String typeId, LocalDateTime startTime, LocalDateTime endTime) {
+        Long l = newsMapper.selectCount(
+                new LambdaQueryWrapper<News>()
+                        .eq(News::getDomainConfig, domain)
+                        .eq(News::getCategoryName, typeId)
+                        .between(News::getPublishTime, startTime, endTime)
+        );
+        return l.intValue();
+    }
+
+    @Override
+    public List<News> getUnassignedNews(String typeId, LocalDateTime startTime, LocalDateTime endTime, int limit) {
+        return newsMapper.selectList(
+            new LambdaQueryWrapper<News>()
+                .eq(News::getCategoryName, typeId)
+                .between(News::getPublishTime, startTime, endTime)
+                .isNull(News::getDomainConfig)
+                .orderByAsc(News::getPublishTime)
+                .last("LIMIT " + limit)
+        );
+    }
+
+    @Override
+    public void updateNews(News news) {
+        newsMapper.updateById(news);
+    }
+
+    @Override
+    public Long countUnassignedNews(String domain, LocalDateTime dayStart, LocalDateTime dayEnd) {
+
+        LambdaQueryWrapper<News> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper
+                   .between(News::getPublishTime, dayStart, dayEnd)
+                   .isNull(News::getDomainConfig);
+
+        return  newsMapper.selectCount(queryWrapper);
+    }
+
+    @Override
+    public List<News> getArticlesByTimeRange(String domain, LocalDateTime randomDate, LocalDateTime windowEnd, int i) {
+        LambdaQueryWrapper<News> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper
+                   .between(News::getPublishTime, randomDate, windowEnd)
+                   .eq(News::getDomainConfig, domain);
+
+        return  newsMapper.selectList(queryWrapper);
+    }
+
+    @Override
+    public List<News> getUncommentedArticles(String domain) {
+        LambdaQueryWrapper<News> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper
+                   .eq(News::getDomainConfig, domain)
+                   .eq(News::getIsComment,false);
+
+        return  newsMapper.selectList(queryWrapper);
     }
 } 

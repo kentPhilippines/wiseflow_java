@@ -249,7 +249,7 @@ public class CommentGenerationTask {
             log.info("为文章[ID={}]({})生成{}条评论", news.getId(), news.getTitle(), needToGenerateCount);
             
             // 生成评论
-            commentService.generateAiComments(news.getId(), needToGenerateCount);
+         //   commentService.generateAiComments(news.getId(), needToGenerateCount);
             
             // 添加到已处理缓存
             processedNewsIds.add(news.getId());

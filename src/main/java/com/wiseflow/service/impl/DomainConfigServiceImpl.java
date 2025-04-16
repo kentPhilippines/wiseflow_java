@@ -4,8 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wiseflow.entity.DomainConfig;
-import com.wiseflow.mapper.DomainConfigMapper;
+import com.wiseflow.entity.*;
+import com.wiseflow.mapper.*;
 import com.wiseflow.service.DomainConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,12 +23,8 @@ import java.util.Optional;
 import java.time.LocalDateTime;
 import java.util.Set;
 import com.wiseflow.dto.DomainConfigRequest;
-import com.wiseflow.entity.DomainSeoKeyword;
-import com.wiseflow.entity.DomainCommentRule;
-import com.wiseflow.entity.DomainArticleConfig;
-import com.wiseflow.mapper.DomainSeoKeywordMapper;
-import com.wiseflow.mapper.DomainCommentRuleMapper;
-import com.wiseflow.mapper.DomainArticleConfigMapper;
+
+import javax.annotation.Resource;
 
 /**
  * 域名配置服务实现类
@@ -50,14 +46,31 @@ public class DomainConfigServiceImpl implements DomainConfigService {
     @Value("${app.default-template-path:/templates/default}")
     private String defaultTemplatePath;
 
-    @Autowired
-    private DomainSeoKeywordMapper seoKeywordMapper;
-    
-    @Autowired
-    private DomainCommentRuleMapper commentRuleMapper;
-    
-    @Autowired
+    @Resource
+    private DomainSeoKeywordMapper DomainSeoKeywordMapper;
+    @Resource
+    private SeoKeywordMapper seoKeywordMapper;
+
+
+
+    @Resource
+    private CommentRuleMapper commentRuleMapper;
+
+    @Resource
+    private DomainCommentRuleMapper   DomainCommentRuleMapper;
+
+    @Resource
     private DomainArticleConfigMapper articleConfigMapper;
+
+    @Resource
+    private ArticleRuleMapper articleRuleMapper;
+
+
+
+
+
+    @Autowired
+    private NewsMapper newsMapper;
 
     @Override
     public Long count() {
@@ -353,16 +366,16 @@ public class DomainConfigServiceImpl implements DomainConfigService {
     @Transactional(rollbackFor = Exception.class)
     public void saveKeywordConfig(Long domainId, DomainConfigRequest request) {
         // 1. 删除原有配置
-        seoKeywordMapper.delete(new LambdaQueryWrapper<DomainSeoKeyword>()
+        DomainSeoKeywordMapper.delete(new LambdaQueryWrapper<DomainSeoKeyword>()
                 .eq(DomainSeoKeyword::getDomainConfigId, domainId));
-        
+
         // 2. 保存新配置
         if (request.getConfigIds() != null && !request.getConfigIds().isEmpty()) {
             request.getConfigIds().forEach(keywordId -> {
                 DomainSeoKeyword config = new DomainSeoKeyword();
                 config.setDomainConfigId(domainId.intValue());
                 config.setSeoKeywordId(keywordId.intValue());
-                seoKeywordMapper.insert(config);
+                DomainSeoKeywordMapper.insert(config);
             });
         }
     }
@@ -371,7 +384,7 @@ public class DomainConfigServiceImpl implements DomainConfigService {
     @Transactional(rollbackFor = Exception.class)
     public void saveCommentConfig(Long domainId, DomainConfigRequest request) {
         // 1. 删除原有配置
-        commentRuleMapper.delete(new LambdaQueryWrapper<DomainCommentRule>()
+        DomainCommentRuleMapper.delete(new LambdaQueryWrapper<DomainCommentRule>()
                 .eq(DomainCommentRule::getDomainConfigId, domainId));
         
         // 2. 保存新配置
@@ -380,7 +393,7 @@ public class DomainConfigServiceImpl implements DomainConfigService {
                 DomainCommentRule config = new DomainCommentRule();
                 config.setDomainConfigId(domainId.intValue());
                 config.setCommentRuleId(ruleId.intValue());
-                commentRuleMapper.insert(config);
+                DomainCommentRuleMapper.insert(config);
             });
         }
     }
@@ -403,5 +416,88 @@ public class DomainConfigServiceImpl implements DomainConfigService {
                 articleConfigMapper.insert(config);
             }
         }
+    }
+
+
+
+
+
+
+    @Override
+    public List<SeoKeyword> getAllDomainKeywords(DomainConfig domainConfig) {
+        // 1. 获取域名ID
+        Integer domainId = domainConfig.getId();
+
+        // 2. 查询该域名下的所有SEO关键词配置
+        List<DomainSeoKeyword> configs = DomainSeoKeywordMapper.selectList(
+            new LambdaQueryWrapper<DomainSeoKeyword>()
+                .eq(DomainSeoKeyword::getDomainConfigId, domainId)
+                .orderByAsc(DomainSeoKeyword::getCreateTime)
+        );
+
+        // 3. 如果没有配置规则,返回空列表
+        if(configs == null || configs.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 4. 获取所有规则ID
+        List<Integer> collect = configs.stream()
+                .map(DomainSeoKeyword::getSeoKeywordId)
+                .collect(Collectors.toList());
+
+        // 5. 查询并返回完整的规则信息
+        return seoKeywordMapper.selectBatchIds(collect);
+    }
+
+    @Override
+    public List<CommentRule> getAllDomainCommentRules(DomainConfig domainConfig) {
+        // 1. 获取域名ID
+        Integer domainId = domainConfig.getId();
+
+        // 2. 查询该域名下的所有评论规则配置
+        List<DomainCommentRule> configs = DomainCommentRuleMapper.selectList(
+            new LambdaQueryWrapper<DomainCommentRule>()
+                .eq(DomainCommentRule::getDomainConfigId, domainId)
+                .orderByAsc(DomainCommentRule::getCreateTime)
+        );
+
+        // 3. 如果没有配置规则,返回空列表
+        if(configs == null || configs.isEmpty()) {
+            return new ArrayList<>();       
+        }
+
+        // 4. 获取所有规则ID
+        List<Integer> collect = configs.stream()
+                .map(DomainCommentRule::getCommentRuleId)
+                .collect(Collectors.toList());
+        List<CommentRule> commentRules = commentRuleMapper.selectBatchIds(collect);
+
+        return commentRules;
+    }
+
+    @Override
+    public List<ArticleRule> getAllDomainArticleConfigs(DomainConfig domainConfig) {
+        // 1. 获取域名ID
+        Integer domainId = domainConfig.getId();
+
+        // 2. 查询该域名下的所有文章配置规则
+        List<DomainArticleConfig> configs = articleConfigMapper.selectList(
+            new LambdaQueryWrapper<DomainArticleConfig>()
+                .eq(DomainArticleConfig::getDomainId, domainId)
+                .orderByAsc(DomainArticleConfig::getSort)
+        );
+        
+        // 3. 如果没有配置规则,返回空列表
+        if(configs == null || configs.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 4. 获取所有规则ID
+        List<Long> ruleIds = configs.stream()
+            .map(DomainArticleConfig::getTypeId)
+            .collect(Collectors.toList());
+            
+        // 5. 查询并返回完整的规则信息
+        return articleRuleMapper.selectBatchIds(ruleIds);
     }
 } 

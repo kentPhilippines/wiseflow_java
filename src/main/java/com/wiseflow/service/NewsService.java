@@ -206,4 +206,48 @@ public interface NewsService {
      */
     List<Map<String, Object>> getArticleTypes();
 
+    /**
+     * 获取文章库中最早的文章时间
+     */
+    LocalDateTime getEarliestNewsTime();
+    
+    /**
+     * 获取文章库中最新的文章时间
+     */
+    LocalDateTime getLatestNewsTime();
+    
+    /**
+     * 统计指定域名在指定时间范围内某个分类已分配的文章数量
+     *
+     * @param domain 域名
+     * @param typeId 分类ID
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @return 已分配的文章数量
+     */
+    int countAssignedNews(String domain, String typeId, LocalDateTime startTime, LocalDateTime endTime);
+    
+    /**
+     * 获取指定分类在指定时间范围内未分配的文章
+     *
+     * @param typeId 分类ID
+     * @param startTime 开始时间
+     * @param endTime 结束时间
+     * @param limit 需要获取的数量
+     * @return 未分配的文章列表
+     */
+    List<News> getUnassignedNews(String typeId, LocalDateTime startTime, LocalDateTime endTime, int limit);
+    
+    /**
+     * 更新文章信息
+     *
+     * @param news 文章信息
+     */
+    void updateNews(News news);
+
+    Long countUnassignedNews(String domain, LocalDateTime dayStart, LocalDateTime dayEnd);
+
+    List<News> getArticlesByTimeRange(String domain, LocalDateTime randomDate, LocalDateTime windowEnd, int i);
+
+    List<News> getUncommentedArticles(String domain);
 }

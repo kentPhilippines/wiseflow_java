@@ -121,16 +121,6 @@ public class CommentController {
         return Result.success();
     }
 
-    /**
-     * 生成AI评论
-     */
-    @PostMapping("/generateAiComments")
-    public Result<Void> generateAiComments(
-            @RequestParam Integer newsId,
-            @RequestParam(defaultValue = "3") Integer count) {
-        
-        commentService.generateAiComments(newsId, count);
-        return Result.success();
-    }
+
 
 } 
