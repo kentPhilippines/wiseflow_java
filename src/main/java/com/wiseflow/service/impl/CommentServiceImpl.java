@@ -1,5 +1,6 @@
 package com.wiseflow.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -19,8 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 /**
  * 评论服务实现
@@ -37,7 +40,28 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     private final  SportCommentAiUtil  sportCommentAiUtil;
     private final DomainConfigService domainConfigService;
 
- 
+    private final Random random = new Random();
+
+    // 随机的评论者名称
+    private static final String[] COMMENTER_NAMES = {
+            "张三", "李四", "王五", "赵六", "田七", "周八", "吴九", "郑十",
+            "小明", "小红", "小刚", "小丽", "小华", "小林", "小雪", "小梅",
+            "阳光", "明月", "繁星", "流云", "清风", "细雨", "春风", "夏雨"
+    };
+
+    // 随机的评论模板
+    private static final String[] COMMENT_TEMPLATES = {
+            "这篇文章讲的%s真不错，学到了很多。",
+            "看完之后对%s有了更深入的了解，谢谢分享！",
+            "文章内容很充实，特别是关于%s的部分很精彩。",
+            "一直想了解%s相关的知识，这篇文章帮了大忙。",
+            "作者对%s的见解很独到，值得思考。",
+            "写得真好，把%s讲得这么清楚。",
+            "长知识了，原来%s还有这么多内容可以挖掘。",
+            "分析得很到位，尤其是%s部分的内容很有启发性。",
+            "非常实用的信息，对%s感兴趣的朋友可以看看。",
+            "观点很新颖，对%s有了不一样的认识。"
+    };
 
     @Override
     @Transactional(rollbackFor = Exception.class)
