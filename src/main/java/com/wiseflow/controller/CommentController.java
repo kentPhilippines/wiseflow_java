@@ -3,7 +3,6 @@ package com.wiseflow.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wiseflow.entity.Comment;
-import com.wiseflow.entity.CommentRule;
 import com.wiseflow.service.CommentRuleService;
 import com.wiseflow.service.CommentService;
 import com.wiseflow.common.Result;
@@ -23,7 +22,6 @@ import java.util.List;
 public class CommentController {
 
     private final CommentService commentService;
-    private final CommentRuleService commentRuleService;
 
     /**
      * 获取评论列表（分页）

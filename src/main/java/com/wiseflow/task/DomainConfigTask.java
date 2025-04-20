@@ -7,6 +7,8 @@ import com.wiseflow.entity.*;
 import com.wiseflow.service.DomainConfigService;
 import com.wiseflow.service.NewsService;
 import com.wiseflow.service.CommentService;
+import com.wiseflow.service.ArticleService;
+import com.wiseflow.util.ArticleUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -22,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+import javax.annotation.Resource;
 
 /**
  * 域名配置定时任务
@@ -33,6 +36,9 @@ public class DomainConfigTask {
 
     private final DomainConfigService domainConfigService;
     private final NewsService newsService;
+    private final CommentService commentService;
+    private final ArticleService articleService;
+    private final ArticleUtil articleUtil;
     
     // 使用原子布尔值作为任务锁
     private final AtomicBoolean taskLock = new AtomicBoolean(false);
@@ -42,12 +48,14 @@ public class DomainConfigTask {
     
     // 批处理大小
     private static final int BATCH_SIZE = 100;
-    private final CommentService commentService;
+
+    // 原子任务状态，避免任务重叠执行
+    private final AtomicBoolean articleRewriteTaskRunning = new AtomicBoolean(false);
 
     /**
      * 每5分钟执行一次配置同步
      */
-    @Scheduled(fixedRate = 3600000)
+    @Scheduled(fixedRate = 300 )
     public void syncDomainConfigs() {
         // 如果上一次任务还在执行,则跳过本次执行
         if (!taskLock.compareAndSet(false, true)) {
@@ -63,16 +71,19 @@ public class DomainConfigTask {
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             
             // 同步文章配置
-       //     futures.add(CompletableFuture.runAsync(() -> syncArticleConfigs(domainConfigs)));
+            futures.add(CompletableFuture.runAsync(() -> syncArticleConfigs(domainConfigs)));
             
             // 同步SEO关键词配置
-        //    futures.add(CompletableFuture.runAsync(() -> syncSeoKeywords(domainConfigs)));
+            futures.add(CompletableFuture.runAsync(() -> syncSeoKeywords(domainConfigs)));
             
             // 同步评论规则配置
             futures.add(CompletableFuture.runAsync(() -> syncCommentRules(domainConfigs)));
 
             // 等待所有任务完成
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+            
+            // 异步触发文章改写任务
+            asyncRewriteArticlesForAllDomains();
             
             log.info("域名配置同步完成");
         } catch (Exception e) {
@@ -93,16 +104,14 @@ public class DomainConfigTask {
             String domain = domainConfig.getDomain();
             log.info("同步SEO关键词配置...{}", domain);
             List<SeoKeyword> keywords = domainConfigService.getAllDomainKeywords(domainConfig);
-            // TODO: 处理关键词配置,例如:更新缓存、触发相关操作等
-      
-      
-      
-      
-      
-      
-      
-      
-      
+            List<String> keywordsSeo = domainConfig.getKeywordsSeo();
+            
+            // 添加文章改写调用
+            if (!keywords.isEmpty()) {
+                rewriteArticlesByDomainConfig(domainConfig, keywords);
+            } else {
+                log.info("域名{}没有配置关键词，不执行文章改写", domain);
+            }
         });
     }
 
@@ -413,5 +422,118 @@ public class DomainConfigTask {
                 });
             }
         }
+    }
+
+    /**
+     * 根据域名配置和关键词改写文章
+     */
+    private void rewriteArticlesByDomainConfig(DomainConfig domainConfig, List<SeoKeyword> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            log.info("域名{}没有可用的SEO关键词，跳过文章改写", domainConfig.getDomain());
+            return;
+        }
+        
+        try {
+            log.info("开始根据域名{}的关键词配置改写文章", domainConfig.getDomain());
+            
+            // 1. 查询需要改写的文章列表（假设每次处理5篇文章）
+            List<Article> articlesToRewrite = articleService.getArticlesToRewrite(domainConfig.getDomain(), 5);
+            if (articlesToRewrite.isEmpty()) {
+                log.info("域名{}下没有需要改写的文章", domainConfig.getDomain());
+                return;
+            }
+            
+            log.info("找到{}篇待改写文章", articlesToRewrite.size());
+            
+            // 2. 处理每篇文章
+            for (Article article : articlesToRewrite) {
+                try {
+                    log.info("开始改写文章: articleId={}, title={}", article.getId(), article.getTitle());
+                    
+                    // 使用ArticleUtil进行改写
+                    ArticleRewrite rewrittenArticle = articleUtil.rewriteArticleWithDomainConfig(
+                            article.getId(), domainConfig);
+                    
+                    if (rewrittenArticle != null) {
+                        log.info("文章改写成功: articleId={}, newTitle={}, originalityScore={}", 
+                                article.getId(), rewrittenArticle.getTitle(), rewrittenArticle.getOriginalityScore());
+                        
+                        // 更新文章改写状态（这里假设有这个方法）
+                        articleService.updateArticleRewriteStatus(article.getId(), true);
+                    } else {
+                        log.warn("文章改写失败: articleId={}", article.getId());
+                    }
+                    
+                } catch (Exception e) {
+                    log.error("改写文章过程中出错: articleId={}, error={}", article.getId(), e.getMessage(), e);
+                }
+                
+                // 为防止API限制，每次改写后短暂休息
+                try {
+                    Thread.sleep(5000); // 5秒
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("改写文章线程被中断");
+                    break;
+                }
+            }
+            
+            log.info("域名{}的文章改写任务完成", domainConfig.getDomain());
+            
+        } catch (Exception e) {
+            log.error("域名{}的文章改写任务异常: {}", domainConfig.getDomain(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 异步触发所有域名的文章改写任务
+     */
+    private void asyncRewriteArticlesForAllDomains() {
+        // 使用新线程执行，避免阻塞主任务
+        CompletableFuture.runAsync(() -> {
+            if (!articleRewriteTaskRunning.compareAndSet(false, true)) {
+                log.info("文章改写任务已在运行中，跳过本次执行");
+                return;
+            }
+            
+            try {
+                log.info("开始执行文章改写任务...");
+                
+                // 获取所有启用的域名配置
+                List<DomainConfig> enabledDomainConfigs = domainConfigService.getEnabledDomainConfigs();
+                
+                for (DomainConfig domainConfig : enabledDomainConfigs) {
+                    try {
+                        // 获取域名的关键词配置
+                        List<SeoKeyword> keywords = domainConfigService.getAllDomainKeywords(domainConfig);
+                        
+                        // 执行文章改写
+                        rewriteArticlesByDomainConfig(domainConfig, keywords);
+                        
+                        // 等待一段时间，避免频繁请求
+                        Thread.sleep(10000); // 10秒
+                    } catch (Exception e) {
+                        log.error("处理域名{}的文章改写任务异常: {}", domainConfig.getDomain(), e.getMessage());
+                        // 继续处理下一个域名
+                    }
+                }
+                
+                log.info("文章改写任务执行完成");
+            } catch (Exception e) {
+                log.error("执行文章改写任务时发生错误: {}", e.getMessage(), e);
+            } finally {
+                // 无论任务成功或失败，都释放任务锁
+                articleRewriteTaskRunning.set(false);
+            }
+        });
+    }
+    
+    /**
+     * 定时触发文章改写任务
+     */
+    @Scheduled(cron = "0 0 1 * * ?") // 每天凌晨1点执行
+    public void scheduledArticleRewriteTask() {
+        log.info("定时文章改写任务开始...");
+        asyncRewriteArticlesForAllDomains();
     }
 } 

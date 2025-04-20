@@ -1,9 +1,12 @@
 package com.wiseflow.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.protobuf.ServiceException;
 import com.wiseflow.entity.*;
 import com.wiseflow.mapper.*;
 import com.wiseflow.service.DomainConfigService;
@@ -499,5 +502,25 @@ public class DomainConfigServiceImpl implements DomainConfigService {
             
         // 5. 查询并返回完整的规则信息
         return articleRuleMapper.selectBatchIds(ruleIds);
+    }
+
+    @Override
+    public List<DomainConfig> getEnabledDomainConfigs() {
+        log.info("获取所有启用的域名配置");
+        
+        LambdaQueryWrapper<DomainConfig> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(DomainConfig::getStatus, 1) // 状态为1表示启用
+                .orderByDesc(DomainConfig::getUpdateTime);
+        
+        List<DomainConfig> domainConfigs = domainConfigMapper.selectList(queryWrapper);
+        log.info("找到{}个启用的域名配置", domainConfigs.size());
+        
+        return domainConfigs;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int batchGenerate(List<String> domains, Long templateId) {
+        return 1;
     }
 } 

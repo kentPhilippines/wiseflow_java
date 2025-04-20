@@ -115,6 +115,9 @@
                             <button class="btn btn-sm btn-outline-light me-2" id="downloadTemplateBtn">
                                 <i class="bi bi-download"></i> 下载模板
                             </button>
+                            <a href="/admin/config/domain/excel-template" class="btn btn-sm btn-outline-light me-2">
+                                <i class="bi bi-file-earmark-excel"></i> Excel模板
+                            </a>
                             <button class="btn btn-sm btn-light me-2" id="uploadTemplateBtn">
                                 <i class="bi bi-upload"></i> 上传模板
                             </button>
@@ -419,14 +422,19 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="templateFile" class="form-label">选择模板文件</label>
-                        <input class="form-control" type="file" id="templateFile" accept=".json,.txt">
-                        <div class="form-text">支持JSON、TXT格式，推荐使用JSON格式</div>
+                        <input class="form-control" type="file" id="templateFile" accept=".json,.txt,.xlsx,.xls">
+                        <div class="form-text">支持JSON、TXT、Excel格式，推荐使用Excel格式</div>
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" id="templateOverwriteExisting">
                         <label class="form-check-label" for="templateOverwriteExisting">
                             覆盖已存在的域名配置
                         </label>
+                    </div>
+                    <div class="mt-3">
+                        <a href="/admin/config/domain/excel-template" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-download"></i> 下载Excel模板
+                        </a>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1200,36 +1208,90 @@
             }
             
             const file = fileInput.files[0];
-            const reader = new FileReader();
+            const fileExtension = file.name.split('.').pop().toLowerCase();
             
-            reader.onload = function(e) {
-                try {
-                    const fileContent = e.target.result;
-                    let configData;
-                    
-                    // 根据文件扩展名解析不同格式
-                    const fileExtension = file.name.split('.').pop().toLowerCase();
-                    
-                    switch (fileExtension) {
-                        case 'json':
-                            configData = JSON.parse(fileContent);
-                            break;
-                        case 'txt':
-                            configData = parseTxtFormat(fileContent);
-                            break;
-                        default:
-                            throw new Error('不支持的文件格式');
+            // 处理Excel文件需要通过上传到服务器进行解析
+            if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('overwrite', overwriteExisting);
+                
+                // 显示加载提示
+                const loadingToast = showLoading('正在解析Excel文件，请稍候...');
+                
+                fetch(`${API_BASE_URL}/domain/parse-excel`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`上传失败: ${response.status}`);
                     }
-                    
-                    // 将解析后的数据直接传给导入接口
-                    importParsedTemplate(configData, overwriteExisting);
-                } catch (error) {
-                    alert('文件格式错误: ' + error.message);
-                    console.error('Error parsing template file:', error);
-                }
-            };
+                    return response.json();
+                })
+                .then(data => {
+                    loadingToast.hide();
+                    if (data.code === 200) {
+                        uploadTemplateModal.hide();
+                        loadConfigurations();
+                        showSuccess(`成功导入 ${data.importedCount} 条配置！`);
+                    } else {
+                        throw new Error(data.message || '导入失败');
+                    }
+                })
+                .catch(error => {
+                    loadingToast.hide();
+                    console.error('Error uploading Excel template:', error);
+                    showError('Excel文件解析失败: ' + error.message);
+                });
+            } else {
+                // 原有的JSON和TXT文件处理逻辑
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const fileContent = e.target.result;
+                        let configData;
+                        
+                        switch (fileExtension) {
+                            case 'json':
+                                configData = JSON.parse(fileContent);
+                                break;
+                            case 'txt':
+                                configData = parseTxtFormat(fileContent);
+                                break;
+                            default:
+                                throw new Error('不支持的文件格式');
+                        }
+                        
+                        // 将解析后的数据直接传给导入接口
+                        importParsedTemplate(configData, overwriteExisting);
+                    } catch (error) {
+                        alert('文件格式错误: ' + error.message);
+                        console.error('Error parsing template file:', error);
+                    }
+                };
+                
+                reader.readAsText(file);
+            }
+        }
+        
+        // 显示加载提示
+        function showLoading(message) {
+            const toast = $(`
+                <div class="toast align-items-center text-white bg-info border-0" role="alert" data-bs-autohide="false">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            ${message}
+                        </div>
+                    </div>
+                </div>
+            `);
             
-            reader.readAsText(file);
+            showToast(toast);
+            const bsToast = bootstrap.Toast.getInstance(toast[0]) || new bootstrap.Toast(toast[0]);
+            return bsToast;
         }
         
         // 解析TXT格式

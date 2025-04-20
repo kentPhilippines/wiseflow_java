@@ -113,4 +113,20 @@ public interface DomainConfigService {
      * 获取所有域名的文章配置
      */
     List<ArticleRule> getAllDomainArticleConfigs(DomainConfig domainConfig);
+
+    /**
+     * 获取所有启用的域名配置
+     * @return 所有启用的域名配置列表
+     */
+    List<DomainConfig> getEnabledDomainConfigs();
+    
+    /**
+     * 批量生成域名配置
+     * 根据域名列表和模板ID生成配置
+     *
+     * @param domains 域名列表
+     * @param templateId 模板ID（可选）
+     * @return 成功生成的配置数量
+     */
+    int batchGenerate(List<String> domains, Long templateId);
 } 

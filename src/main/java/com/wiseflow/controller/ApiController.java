@@ -106,7 +106,6 @@ public class ApiController {
             newsService.incrementViewCount(id);
             
 
-            Integer viewCount = news.getViewCount();
 
 
             newsService.isHotNews(id);

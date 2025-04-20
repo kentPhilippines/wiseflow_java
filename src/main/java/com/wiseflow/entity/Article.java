@@ -23,4 +23,6 @@ public class Article {
     private LocalDateTime updateTime;
     private Boolean isOriginal; // 是否为原创文章
     private Long originalArticleId; // 如果是改写文章，关联原文章ID
+    private String domain; // 域名
+    private Boolean isRewritten; // 是否已被改写
 } 
