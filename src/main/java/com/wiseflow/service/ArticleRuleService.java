@@ -37,4 +37,6 @@ public interface ArticleRuleService {
 
     long count();
 
+    List<ArticleRule> batchConfigArticle(List<Integer> batchIdsList, String phone);
+
 }

@@ -5,6 +5,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -30,11 +31,14 @@ public class CacheConfig {
     public static final String CACHE_NEWS_DETAIL_API = "newsDetailApi";
     public static final String CACHE_NEWS_DETAIL_ADMIN = "newsDetailAdmin";
     public static final String CACHE_DOMAIN_CONFIG = "domainConfig";
+    public static final String CACHE_ARTICLE_TITLE = "articleTitle";
+    public static final String CACHE_ARTICLE_CONTENT = "articleContent";
     
     /**
      * 配置缓存管理器
-     * 设置默认过期时间为5分钟
+     * 根据缓存名称使用不同的过期时间
      */
+    @Primary
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
@@ -51,19 +55,31 @@ public class CacheConfig {
                 CACHE_CRAWLER_LOGS,
                 CACHE_NEWS_DETAIL_API,
                 CACHE_NEWS_DETAIL_ADMIN,
-                CACHE_DOMAIN_CONFIG
+                CACHE_DOMAIN_CONFIG,
+                CACHE_ARTICLE_TITLE,
+                CACHE_ARTICLE_CONTENT
         ));
         
-        // 设置缓存配置
-        cacheManager.setCaffeine(Caffeine.newBuilder()
-                // 初始容量
-                .initialCapacity(100)
-                // 最大容量，超过后会自动清除最近最少使用的缓存
-                .maximumSize(1000)
-                // 过期时间，最后一次写入后5分钟过期
-                .expireAfterWrite(5, TimeUnit.MINUTES)
-                // 统计缓存命中率
-                .recordStats());
+        // 使用缓存构建器函数
+        cacheManager.setCacheLoader(cacheName -> {
+            if (CACHE_ARTICLE_TITLE.equals(cacheName) || CACHE_ARTICLE_CONTENT.equals(cacheName)) {
+                // 文章标题和内容使用3小时过期时间
+                return Caffeine.newBuilder()
+                        .initialCapacity(100)
+                        .maximumSize(5000)
+                        .expireAfterWrite(3, TimeUnit.HOURS)
+                        .recordStats()
+                        .build();
+            } else {
+                // 其他缓存使用5分钟过期时间
+                return Caffeine.newBuilder()
+                        .initialCapacity(100)
+                        .maximumSize(1000)
+                        .expireAfterWrite(5, TimeUnit.MINUTES)
+                        .recordStats()
+                        .build();
+            }
+        });
         
         return cacheManager;
     }

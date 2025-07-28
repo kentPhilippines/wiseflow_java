@@ -46,8 +46,7 @@ public class NewsServiceImpl extends ServiceImpl<NewsMapper, News> implements Ne
     @Override
     public News save1(News news) {
         // 进行SEO优化
-        news = seoService.processSeoOptimization(news);
-        
+
         if (news.getId() == null) {
             newsMapper.insert(news);
         } else {
@@ -257,8 +256,7 @@ public class NewsServiceImpl extends ServiceImpl<NewsMapper, News> implements Ne
     @Override
     public News update(News news) {
         // 进行SEO优化
-        news = seoService.processSeoOptimization(news);
-        
+
         newsMapper.updateById(news);
         return newsMapper.selectById(news.getId());
     }
@@ -407,5 +405,22 @@ public class NewsServiceImpl extends ServiceImpl<NewsMapper, News> implements Ne
                    .eq(News::getIsComment,false);
 
         return  newsMapper.selectList(queryWrapper);
+    }
+
+    @Override
+    public List<News> getUnrewrittenArticles(String domain) {
+       
+        LambdaQueryWrapper<News> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper
+                   .eq(News::getDomainConfig, domain)
+                   .eq(News::getNeedRewrite,true)
+                   .orderByAsc(News::getPublishTime)
+                   .last("LIMIT 5");
+        return  newsMapper.selectList(queryWrapper);
+    }
+    @Override
+    public NewsContent getNewsContent(Integer id) {
+        NewsContent newsContent = contentMapper.selectByNewsId(id);
+        return newsContent;
     }
 } 

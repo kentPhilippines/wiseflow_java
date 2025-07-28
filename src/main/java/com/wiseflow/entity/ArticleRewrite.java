@@ -19,12 +19,12 @@ public class ArticleRewrite {
     private Long originalArticleId;
     
     /**
-     * 改写后的标题
+     * 改写标题提示词
      */
     private String title;
     
     /**
-     * 改写后的内容
+     * 改写内容提示词
      */
     private String content;
     

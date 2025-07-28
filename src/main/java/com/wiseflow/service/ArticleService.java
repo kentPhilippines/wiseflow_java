@@ -57,11 +57,5 @@ public interface ArticleService {
      */
     List<Article> getArticlesToRewrite(String domain, int limit);
     
-    /**
-     * 更新文章改写状态
-     * 
-     * @param articleId 文章ID
-     * @param isRewritten 是否已改写
-     */
-    void updateArticleRewriteStatus(Long articleId, boolean isRewritten);
-} 
+
+}

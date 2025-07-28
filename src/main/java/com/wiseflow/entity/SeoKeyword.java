@@ -10,20 +10,15 @@ import java.time.LocalDateTime;
 @Data
 @TableName("wf_seo_keyword")
 public class SeoKeyword {
-    
     /**
      * 主键ID
      */
     @TableId(type = IdType.AUTO)
     private Integer id;
-    
- 
-    
     /**
-     * 关键词类型（1:主关键词 2:长尾关键词）
+     * 关键词类型（1:主关键词 2:长尾关键词 3:描文本） 
      */
     private Integer type;
-    
     /**
      * 使用场景（1:文章内容 2:评论 3:两者都用）
      */
@@ -95,4 +90,4 @@ public class SeoKeyword {
     private String keyword;
 
     
-} 
+}

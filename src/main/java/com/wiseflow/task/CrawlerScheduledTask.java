@@ -19,7 +19,7 @@ import java.util.Map;
  * 爬虫定时任务
  */
 @Slf4j
-//@Component
+@Component
 @RequiredArgsConstructor
 public class CrawlerScheduledTask {
 

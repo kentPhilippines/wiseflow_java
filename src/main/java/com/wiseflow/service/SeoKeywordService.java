@@ -70,4 +70,6 @@ public interface SeoKeywordService extends IService<SeoKeyword> {
     List<SeoKeyword> findByStatus(Boolean enabled);
 
     List<SeoKeyword> getKeywordsByDomain(String domain);
+
+    List<SeoKeyword> batchConfigKeyword(List<Integer> batchIdsList, String phone);
 } 

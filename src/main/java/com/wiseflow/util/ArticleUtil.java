@@ -1,9 +1,16 @@
 package com.wiseflow.util;
 
-import com.wiseflow.entity.Article;
-import com.wiseflow.entity.ArticleRewrite;
-import com.wiseflow.entity.DomainConfig;
-import com.wiseflow.entity.SeoKeyword;
+import cn.hutool.http.HttpResponse;
+import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.wiseflow.entity.*;
+import com.wiseflow.mapper.ArticleMapper;
+import com.wiseflow.mapper.NewsContentMapper;
+import com.wiseflow.mapper.NewsMapper;
 import com.wiseflow.model.ArticleAiTask;
 import com.wiseflow.service.ArticleAiService;
 import com.wiseflow.service.ArticleService;
@@ -11,6 +18,7 @@ import com.wiseflow.service.DomainConfigService;
 import com.wiseflow.service.SeoKeywordService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -19,12 +27,18 @@ import org.jsoup.select.Elements;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import com.wiseflow.mapper.ArticleRewriteMapper;
 
 /**
  * 文章工具类，封装文章改写相关功能
@@ -33,419 +47,116 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 public class ArticleUtil {
-
     private final ArticleAiService articleAiService;
+    private final ArticleRewriteMapper articleRewriteMapper;
+    private final ArticleMapper articleMapper;
+    private final NewsMapper newsMapper;
+    private final NewsContentMapper newsContentMapper;
+
+    private static final int MAX_RETRIES = 5;
+    private static final int RETRY_DELAY = 5000;
+    private static final int MAX_WAIT_TIME = 60000;
+    private static final int CONNECT_TIMEOUT = 600000;
+    private static final int READ_TIMEOUT = 600000;
+    private static final Pattern CHINESE_PATTERN = Pattern.compile("[\\u4e00-\\u9fa5]");
+
     private final ArticleService articleService;
     private final SeoKeywordService seoKeywordService;
     private final DomainConfigService domainConfigService;
-    
+    @Value("${deepseek.api.url:https://api.deepseek.com/v1/chat/completions}")
+    private String modelApiUrl;
+
+    @Value("${deepseek.api.token:sk-36da0e78863c4f29bf1b109bb8b92ac3}")
+    private String apiToken;
+
+    @Value("${article.ai.process.cron:0/30 * * * * ?}")
+    private String processCron;
+
+    @Value("${article.ai.model.name:deepseek-reasoner}")
+    private String modelName;
     private static final long DEFAULT_TIMEOUT = 300; // 默认超时时间（秒）
 
     /**
-     * 提交改写任务
-     * 
-     * @param articleId 文章ID
-     * @param keywordIds 关键词ID列表（可选）
-     * @param domain 域名（可选，如果提供则使用该域名下的所有关键词）
-     * @return 任务ID
-     */
-    public String submitRewriteTask(Long articleId, List<Long> keywordIds, String domain) {
-        log.info("提交文章改写任务: articleId={}, keywordIds={}, domain={}", articleId, keywordIds, domain);
-        
-        // 获取文章信息
-        Article article = articleService.findById(articleId);
-        if (article == null) {
-            throw new RuntimeException("文章不存在: " + articleId);
-        }
-        
-        List<SeoKeyword> keywords = new ArrayList<>();
-        
-        // 如果提供了特定的关键词ID列表，则使用这些关键词
-        if (keywordIds != null && !keywordIds.isEmpty()) {
-            for (Long keywordId : keywordIds) {
-                SeoKeyword keyword = seoKeywordService.findById(keywordId);
-                if (keyword != null) {
-                    keywords.add(keyword);
-                }
-            }
-        } 
-        // 如果提供了域名，则使用该域名下的所有关键词
-        else if (domain != null && !domain.isEmpty()) {
-            keywords = seoKeywordService.getKeywordsByDomain(domain);
-        }
-        
-        if (keywords.isEmpty()) {
-            throw new RuntimeException("未找到可用的关键词");
-        }
-        
-        log.info("提交文章改写任务，使用关键词: {}", 
-                keywords.stream().map(SeoKeyword::getKeyword).collect(Collectors.joining(", ")));
-        
-        // 提交改写任务
-        String taskId = articleAiService.submitAiTask(articleId, article.getTitle(), article.getContent());
-        
-        // 在后台异步执行改写任务
-        executeRewriteTask(taskId, article, keywords);
-        
-        return taskId;
-    }
-    
-    /**
-     * 执行改写任务
-     * 
-     * @param taskId 任务ID
-     * @param article 文章对象
-     * @param keywords 关键词列表
-     */
-    public void executeRewriteTask(String taskId, Article article, List<SeoKeyword> keywords) {
-        log.info("开始执行文章改写任务: taskId={}, articleId={}", taskId, article.getId());
-        
-        // 异步执行改写任务
-        CompletableFuture.runAsync(() -> {
-            try {
-                // 执行基于关键词的文章改写
-                CompletableFuture<ArticleRewrite> future = articleAiService.processArticleWithKeywords(
-                        article.getId(),
-                        article.getTitle(),
-                        article.getContent(),
-                        keywords
-                );
-                
-                // 等待改写结果
-                ArticleRewrite rewrite = future.get(DEFAULT_TIMEOUT, TimeUnit.SECONDS);
-                
-                if (rewrite != null) {
-                    log.info("文章改写成功: taskId={}, articleId={}, originalityScore={}", 
-                            taskId, article.getId(), rewrite.getOriginalityScore());
-                } else {
-                    log.warn("文章改写失败: taskId={}, articleId={}", taskId, article.getId());
-                }
-                
-            } catch (InterruptedException e) {
-                log.error("改写任务被中断: taskId={}, articleId={}", taskId, article.getId(), e);
-                Thread.currentThread().interrupt();
-            } catch (ExecutionException e) {
-                log.error("改写任务执行异常: taskId={}, articleId={}", taskId, article.getId(), e);
-            } catch (TimeoutException e) {
-                log.error("改写任务超时: taskId={}, articleId={}", taskId, article.getId(), e);
-            } catch (Exception e) {
-                log.error("改写任务未知异常: taskId={}, articleId={}", taskId, article.getId(), e);
-            }
-        });
-    }
-    
-    /**
-     * 同步改写结果
-     * 
-     * @param articleId 文章ID
-     * @param keywords 关键词列表
-     * @param timeoutSeconds 超时时间（秒）
-     * @return 改写后的文章
-     */
-    public ArticleRewrite syncRewriteArticle(Long articleId, List<SeoKeyword> keywords, long timeoutSeconds) {
-        log.info("同步改写文章: articleId={}, timeoutSeconds={}", articleId, timeoutSeconds);
-        
-        Article article = articleService.findById(articleId);
-        if (article == null) {
-            throw new RuntimeException("文章不存在: " + articleId);
-        }
-        
-        if (keywords == null || keywords.isEmpty()) {
-            throw new RuntimeException("关键词列表不能为空");
-        }
-        
-        try {
-            // 执行基于关键词的文章改写，并同步等待结果
-            CompletableFuture<ArticleRewrite> future = articleAiService.processArticleWithKeywords(
-                    articleId,
-                    article.getTitle(),
-                    article.getContent(),
-                    keywords
-            );
-            
-            // 设置超时时间
-            return future.get(timeoutSeconds, TimeUnit.SECONDS);
-            
-        } catch (InterruptedException e) {
-            log.error("同步改写被中断: articleId={}", articleId, e);
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("改写任务被中断", e);
-        } catch (ExecutionException e) {
-            log.error("同步改写执行异常: articleId={}", articleId, e);
-            throw new RuntimeException("改写任务执行异常: " + e.getMessage(), e);
-        } catch (TimeoutException e) {
-            log.error("同步改写超时: articleId={}, timeoutSeconds={}", articleId, timeoutSeconds, e);
-            throw new RuntimeException("改写任务超时", e);
-        }
-    }
-    
-    /**
-     * 同步改写结果（使用默认超时时间）
-     * 
-     * @param articleId 文章ID
-     * @param keywords 关键词列表
-     * @return 改写后的文章
-     */
-    public ArticleRewrite syncRewriteArticle(Long articleId, List<SeoKeyword> keywords) {
-        return syncRewriteArticle(articleId, keywords, DEFAULT_TIMEOUT);
-    }
-    
-    /**
-     * 根据域名同步改写文章
-     * 
-     * @param articleId 文章ID
-     * @param domain 域名
-     * @param timeoutSeconds 超时时间（秒）
-     * @return 改写后的文章
-     */
-    public ArticleRewrite syncRewriteArticleByDomain(Long articleId, String domain, long timeoutSeconds) {
-        log.info("根据域名同步改写文章: articleId={}, domain={}, timeoutSeconds={}", 
-                articleId, domain, timeoutSeconds);
-        
-        List<SeoKeyword> keywords = seoKeywordService.getKeywordsByDomain(domain);
-        if (keywords.isEmpty()) {
-            throw new RuntimeException("域名下未找到可用的关键词: " + domain);
-        }
-        
-        log.info("使用域名{}下的{}个关键词改写文章", domain, keywords.size());
-        return syncRewriteArticle(articleId, keywords, timeoutSeconds);
-    }
-    
-    /**
-     * 根据域名同步改写文章（使用默认超时时间）
-     * 
-     * @param articleId 文章ID
-     * @param domain 域名
-     * @return 改写后的文章
-     */
-    public ArticleRewrite syncRewriteArticleByDomain(Long articleId, String domain) {
-        return syncRewriteArticleByDomain(articleId, domain, DEFAULT_TIMEOUT);
-    }
-
-    /**
-     * 根据域名配置对象改写文章
-     * 
-     * @param articleId 文章ID
-     * @param domainConfig 域名配置对象
-     * @param timeoutSeconds 超时时间（秒）
-     * @return 改写后的文章
-     */
-    public ArticleRewrite syncRewriteArticleByDomainConfig(Long articleId, DomainConfig domainConfig, long timeoutSeconds) {
-        log.info("根据域名配置改写文章: articleId={}, domain={}, timeoutSeconds={}", 
-                articleId, domainConfig.getDomain(), timeoutSeconds);
-        
-        // 获取文章信息
-        Article article = articleService.findById(articleId);
-        if (article == null) {
-            throw new RuntimeException("文章不存在: " + articleId);
-        }
-        
-        // 1. 从域名配置中获取关键词
-        List<String> keywordTexts = domainConfig.getKeywordsSeo();
-        List<SeoKeyword> domainKeywords = domainConfig.getSeoKeywords();
-        
-        // 最终使用的关键词列表
-        List<SeoKeyword> keywordsToUse = new ArrayList<>();
-        
-        // 2. 如果域名配置中有关联的SEO关键词对象，优先使用这些关键词
-        if (domainKeywords != null && !domainKeywords.isEmpty()) {
-            log.info("使用域名配置关联的SEO关键词: {}", 
-                    domainKeywords.stream().map(SeoKeyword::getKeyword).collect(Collectors.joining(", ")));
-            
-            // 按照关键词类型和规则筛选
-            for (SeoKeyword keyword : domainKeywords) {
-                // 只使用启用的、适用于文章内容的关键词（useScene=1或3表示适用于文章内容）
-                if (keyword.getEnabled() && (keyword.getUseScene() == 1 || keyword.getUseScene() == 3)) {
-                    keywordsToUse.add(keyword);
-                }
-            }
-        }
-        
-        // 3. 如果没有关联的SEO关键词对象或筛选后为空，则使用域名配置中的普通关键词
-        if (keywordsToUse.isEmpty() && !keywordTexts.isEmpty()) {
-            log.info("使用域名配置中的普通关键词: {}", String.join(", ", keywordTexts));
-            
-            // 为每个关键词文本创建一个简单的SeoKeyword对象
-            for (String keywordText : keywordTexts) {
-                SeoKeyword keyword = new SeoKeyword();
-                keyword.setKeyword(keywordText);
-                keyword.setEnabled(true);
-                keyword.setMaxInsertions(3); // 默认最多插入3次
-                keyword.setAllowTitle(true); // 默认允许在标题中使用
-                keyword.setType(2); // 默认为长尾关键词
-                keyword.setUseScene(1); // 默认用于文章内容
-                
-                keywordsToUse.add(keyword);
-            }
-        }
-        
-        // 4. 如果最终没有可用的关键词，抛出异常
-        if (keywordsToUse.isEmpty()) {
-            throw new RuntimeException("域名配置中未找到可用的关键词: " + domainConfig.getDomain());
-        }
-        
-        log.info("最终使用{}个关键词改写文章: {}", keywordsToUse.size(), 
-                keywordsToUse.stream().map(SeoKeyword::getKeyword).collect(Collectors.joining(", ")));
-        
-        // 5. 执行改写
-        return syncRewriteArticle(articleId, keywordsToUse, timeoutSeconds);
-    }
-    
-    /**
-     * 根据域名配置对象改写文章（使用默认超时时间）
-     * 
-     * @param articleId 文章ID
-     * @param domainConfig 域名配置对象
-     * @return 改写后的文章
-     */
-    public ArticleRewrite syncRewriteArticleByDomainConfig(Long articleId, DomainConfig domainConfig) {
-        return syncRewriteArticleByDomainConfig(articleId, domainConfig, DEFAULT_TIMEOUT);
-    }
-    
-    /**
-     * 根据域名查找域名配置，然后改写文章
-     * 
-     * @param articleId 文章ID
-     * @param domainName 域名名称
-     * @param timeoutSeconds 超时时间（秒）
-     * @return 改写后的文章
-     */
-    public ArticleRewrite syncRewriteArticleByDomainName(Long articleId, String domainName, long timeoutSeconds) {
-        log.info("根据域名名称改写文章: articleId={}, domainName={}", articleId, domainName);
-        
-        // 1. 根据域名名称查找域名配置
-        DomainConfig domainConfig = domainConfigService.findByDomain(domainName)
-            .orElseThrow(() -> new RuntimeException("未找到域名配置: " + domainName));
-        
-        // 2. 使用域名配置改写文章
-        return syncRewriteArticleByDomainConfig(articleId, domainConfig, timeoutSeconds);
-    }
-    
-    /**
-     * 根据域名查找域名配置，然后改写文章（使用默认超时时间）
-     * 
-     * @param articleId 文章ID
-     * @param domainName 域名名称
-     * @return 改写后的文章
-     */
-    public ArticleRewrite syncRewriteArticleByDomainName(Long articleId, String domainName) {
-        return syncRewriteArticleByDomainName(articleId, domainName, DEFAULT_TIMEOUT);
-    }
-    
-    /**
-     * 根据关键词规则优化改写文章
-     * 
-     * @param article 文章对象
-     * @param keywords 关键词列表
-     * @return 改写后的文章
-     */
-    public CompletableFuture<ArticleRewrite> applyKeywordRulesToArticle(Article article, List<SeoKeyword> keywords) {
-        log.info("根据关键词规则优化改写文章: articleId={}, keywordsCount={}", article.getId(), keywords.size());
-        
-        // 根据关键词规则构建提示，包含使用频率、位置等规则
-        StringBuilder keywordRules = new StringBuilder();
-        keywordRules.append("关键词使用规则：\n");
-        
-        for (SeoKeyword keyword : keywords) {
-            keywordRules.append("- 关键词: ").append(keyword.getKeyword()).append("\n");
-            
-            // 添加插入次数规则
-            if (keyword.getMaxInsertions() != null) {
-                keywordRules.append("  - 出现次数: ").append(keyword.getMaxInsertions()).append("次\n");
-            } else {
-                keywordRules.append("  - 出现次数: 1-3次\n");
-            }
-            
-            // 添加标题规则
-            if (keyword.getAllowTitle() != null && keyword.getAllowTitle()) {
-                keywordRules.append("  - 允许在标题中使用\n");
-            }
-            
-            // 添加类型信息
-            if (keyword.getType() != null) {
-                keywordRules.append("  - 类型: ").append(keyword.getType() == 1 ? "主关键词" : "长尾关键词").append("\n");
-                
-                // 主关键词优先级更高
-                if (keyword.getType() == 1) {
-                    keywordRules.append("  - 优先级: 高\n");
-                }
-            }
-        }
-        
-        log.info("构建关键词规则:\n{}", keywordRules.toString());
-        
-        // 执行基于详细规则的文章改写
-        return articleAiService.processArticleWithKeywords(
-                article.getId(),
-                article.getTitle(),
-                article.getContent(),
-                keywords
-        );
-    }
-
-    /**
      * 基于关键词规则构建自定义AI改写提示词
-     * 
-     * @param title 原文标题
-     * @param content 原文内容
-     * @param keywords 关键词列表
+     *
+     * @param title       原文标题
+     * @param content     原文内容
+     * @param keywords    关键词改写规则
+     * @param keywordsSeo 关键词列表
      * @return 包含标题提示和内容提示的数组
      */
-    public String[] buildCustomPrompts(String title, String content, List<SeoKeyword> keywords) {
+    public String[] buildCustomPrompts(String title, String content, List<SeoKeyword> keywords,
+            List<String> keywordsSeo) {
         log.info("构建自定义AI改写提示词，使用{}个关键词", keywords.size());
-        
+
         // 提取关键词文本和规则
         StringBuilder keywordsList = new StringBuilder();
         List<String> mainKeywords = new ArrayList<>();
         List<String> longTailKeywords = new ArrayList<>();
         List<String> titleKeywords = new ArrayList<>();
-        
+        for (String keyword : keywordsSeo) {
+            keywords.stream().forEach(k -> {
+                k.setKeyword(keyword);
+            });
+        }
         // 分类关键词
         for (SeoKeyword keyword : keywords) {
             String keywordText = keyword.getKeyword();
-            
+
             // 按关键词类型分类
             if (keyword.getType() != null && keyword.getType() == 1) {
                 mainKeywords.add(keywordText); // 主关键词
             } else {
                 longTailKeywords.add(keywordText); // 长尾关键词
             }
-            
+
             // 可用于标题的关键词
             if (keyword.getAllowTitle() != null && keyword.getAllowTitle()) {
                 titleKeywords.add(keywordText);
             }
-            
+
             // 构建关键词详情
             keywordsList.append("- ").append(keywordText);
-            
+
             // 添加关键词规则
             if (keyword.getMaxInsertions() != null) {
                 keywordsList.append(" (出现").append(keyword.getMaxInsertions()).append("次)");
             }
-            
+
             if (keyword.getType() != null && keyword.getType() == 1) {
                 keywordsList.append(" [主关键词]");
             }
-            
+            // 添加SEO关键词标记
+            if (keywordsSeo != null && keywordsSeo.contains(keywordText)) {
+                keywordsList.append(" [SEO关键词]");
+            }
+            if (keyword.getUseScene() == 3) {
+                keywordsList.append(" [描文本]");
+            }
+            if (keyword.getUseScene() == 2) {
+                keywordsList.append(" [长尾关键词]");
+            }
+            if (keyword.getUseScene() == 1) {
+                keywordsList.append(" [主关键词]");
+            }
             keywordsList.append("\n");
         }
-        
+
         // 构建标题提示词
         String titlePrompt = "你是一个专业的文章标题优化专家。请改写以下标题，要求：\n" +
                 "1. 保持专业性和可读性\n" +
                 "2. 不要过分夸张\n" +
                 "3. 长度适中\n" +
                 "4. 突出文章重点\n";
-        
+
         // 如果有可用于标题的关键词，添加到提示中
         if (!titleKeywords.isEmpty()) {
-            titlePrompt += "5. 必须自然地在标题中包含以下至少一个关键词：" + 
+            titlePrompt += "5. 必须自然地在标题中包含以下至少一个关键词：" +
                     String.join("、", titleKeywords) + "\n";
         }
-        
+
         titlePrompt += "\n原标题：" + title + "\n请直接给出改写后的标题，不要包含任何解释。";
-        
+
         // 构建内容提示词，整合关键词规则
         String contentPrompt = "你是一个专业的文章改写专家。请改写以下文章，要求：\n" +
                 "1. 保持主要意思不变，但使用不同的表达方式重写\n" +
@@ -456,220 +167,326 @@ public class ArticleUtil {
                 "6. 保持文章排版设计\n" +
                 "7. 图片引用不要改变\n" +
                 "8. 不要改变文章的结构\n";
-        
+
         // 添加关键词要求
-        contentPrompt += "9. 必须在文章中自然地包含以下所有关键词：\n" + keywordsList.toString() + "\n";
-        
+        contentPrompt += "9. 必须在文章中自然地包含以下至少3个关键词：\n" + keywordsList.toString() + "\n";
+
         // 添加特殊规则
-        if (!mainKeywords.isEmpty()) {
-            contentPrompt += "10. 主关键词（标记为[主关键词]）是重点，必须确保在文章中突出显示\n";
-        }
-        
-        if (!longTailKeywords.isEmpty()) {
-            contentPrompt += "11. 长尾关键词可以在文章中适当分布，确保自然融入\n";
-        }
-        
-        contentPrompt += "12. 关键词插入必须自然流畅，不影响阅读体验\n";
-        contentPrompt += "13. 如果某个关键词已指定出现次数，请严格遵循\n";
-        
+        contentPrompt += "10. 主关键词（标记为[主关键词]）是重点，必须确保在文章中突出显示\n";
+        contentPrompt += "11. 长尾关键词可以在文章中适当分布，确保自然融入\n";
+        contentPrompt += "12. 描文本（标记为[描文本]）是重点，必须确保在文章中突出显示\n";
+
+        contentPrompt += "13. 关键词插入必须自然流畅，不影响阅读体验\n";
+        contentPrompt += "14. 如果某个关键词已指定出现次数，请严格遵循\n";
+        contentPrompt += "15. 文章中必须包含描文本（标记为[描文本]）\n";
+        contentPrompt += "16. 文章必须符合seo优化规则，便于搜索引擎收录和站点排名\n";
         contentPrompt += "\n原文：" + content + "\n请直接给出改写后的文章，不要包含任何解释。";
-        
+
         log.debug("标题提示词长度: {}", titlePrompt.length());
         log.debug("内容提示词长度: {}", contentPrompt.length());
-        
-        return new String[]{titlePrompt, contentPrompt};
+        return new String[] { titlePrompt, contentPrompt };
     }
-    
+
     /**
-     * 使用定制化提示词请求AI改写文章
-     * 
-     * @param articleId 文章ID
-     * @param keywords 关键词列表
-     * @return 异步执行的改写任务
+     * 根据关键词改写文章
+     *
+     * @param articleId       文章ID
+     * @param title           文章标题
+     * @param keywordsSeo     关键词列表
+     * @param originalContent 原文内容
+     * @param keywords        关键词改写规则
+     * @return 改写后的文章
      */
-    public CompletableFuture<ArticleRewrite> rewriteArticleWithCustomPrompts(Long articleId, List<SeoKeyword> keywords) {
-        log.info("使用定制化提示词改写文章: articleId={}, keywordsCount={}", articleId, keywords.size());
-        
-        Article article = articleService.findById(articleId);
-        if (article == null) {
-            throw new RuntimeException("文章不存在: " + articleId);
-        }
-        
+    public ArticleRewrite rewriteArticle(Long articleId, String title, List<String> keywordsSeo, String originalContent,
+            List<SeoKeyword> keywords) {
+        log.info("根据关键词改写文章: articleId={}, title={}, keywordsCount={}", articleId, title, keywords.size());
         if (keywords == null || keywords.isEmpty()) {
             throw new RuntimeException("关键词列表不能为空");
         }
-        
-        // 构建定制化提示词
-        String[] prompts = buildCustomPrompts(article.getTitle(), article.getContent(), keywords);
-        String titlePrompt = prompts[0];
-        String contentPrompt = prompts[1];
-        
-        return CompletableFuture.supplyAsync(() -> {
-            try {
-                log.info("开始使用定制化提示词改写文章: articleId={}", articleId);
-                
-                // 改写标题
-                log.info("使用定制化提示词改写标题");
-                String newTitle = articleAiService.submitAiTask(articleId, titlePrompt, article.getContent());
-                // 获取AI生成的标题结果（注意：这里简化处理了，实际应该从ArticleAiTask中获取结果）
-                ArticleAiTask titleTask = articleAiService.getTaskStatus(newTitle);
-                if (titleTask != null && titleTask.getStatus().equals("COMPLETED")) {
-                    newTitle = titleTask.getTitle();
-                } else {
-                    // 如果没有成功获取AI改写标题，使用原标题
-                    newTitle = article.getTitle();
-                    log.warn("未能获取AI改写标题，使用原标题");
-                }
-                
-                // 改写内容
-                log.info("使用定制化提示词改写内容");
-                // 使用已有的processArticleWithKeywords方法改写内容
-                CompletableFuture<ArticleRewrite> future = articleAiService.processArticleWithKeywords(
-                        articleId,
-                        newTitle,
-                        article.getContent(),
-                        keywords
-                );
-                
-                // 等待改写结果
-                ArticleRewrite rewrite = future.get(DEFAULT_TIMEOUT, TimeUnit.SECONDS);
-                
-                // 如果成功获取改写结果，返回该结果
-                if (rewrite != null) {
-                    log.info("文章改写成功: articleId={}, originalityScore={}", 
-                            articleId, rewrite.getOriginalityScore());
-                    return rewrite;
-                } else {
-                    throw new RuntimeException("文章改写失败，未能获取改写结果");
-                }
-                
-            } catch (Exception e) {
-                log.error("使用定制化提示词改写文章失败: articleId={}, error={}", articleId, e.getMessage(), e);
-                throw new RuntimeException("改写文章失败: " + e.getMessage(), e);
+        if (keywordsSeo == null || keywordsSeo.isEmpty()) {
+            throw new RuntimeException("关键词列表不能为空");
+        }
+        if (originalContent == null || originalContent.isEmpty()) {
+            throw new RuntimeException("原文内容不能为空");
+        }
+        if (title == null || title.isEmpty()) {
+            throw new RuntimeException("标题不能为空");
+        }
+        if (articleId == null) {
+            throw new RuntimeException("文章ID不能为空");
+        }
+        ArticleRewrite ar = articleRewriteMapper
+                .selectOne(new LambdaQueryWrapper<ArticleRewrite>()
+                        .eq(ArticleRewrite::getOriginalArticleId, articleId));
+        if (ar != null) {
+            log.info("文章已改写或进行中");
+            if (ar.getStatus().equals("ARCHIVED")) {
+                // 如果文章已改写或进行中，则返回null
+                newsMapper.update(new LambdaUpdateWrapper<News>().eq(News::getId, articleId)
+                        .set(News::getRewriteStatus, "COMPLETED")
+                        .set(News::getUpdateTime, LocalDateTime.now())
+                        .set(News::getNeedRewrite, false));
+                return null;
+            } else {
+                return ar;
             }
-        });
-    }
-    
-    /**
-     * 根据域名配置使用定制化提示词改写文章
-     * 
-     * @param articleId 文章ID
-     * @param domainConfig 域名配置
-     * @param timeoutSeconds 超时时间（秒）
-     * @return 改写后的文章
-     */
-    public ArticleRewrite rewriteArticleWithDomainConfig(Long articleId, DomainConfig domainConfig, long timeoutSeconds) {
-        log.info("根据域名配置使用定制化提示词改写文章: articleId={}, domain={}", 
-                articleId, domainConfig.getDomain());
-        
-        // 获取关键词
-        List<SeoKeyword> keywords = getKeywordsFromDomainConfig(domainConfig);
-        
+        }
         try {
-            // 执行改写并等待结果
-            return rewriteArticleWithCustomPrompts(articleId, keywords).get(timeoutSeconds, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            log.error("改写任务被中断: articleId={}", articleId, e);
-            Thread.currentThread().interrupt();
-            throw new RuntimeException("改写任务被中断", e);
-        } catch (ExecutionException e) {
-            log.error("改写任务执行异常: articleId={}", articleId, e);
-            throw new RuntimeException("改写任务执行异常: " + e.getMessage(), e);
-        } catch (TimeoutException e) {
-            log.error("改写任务超时: articleId={}, timeoutSeconds={}", articleId, timeoutSeconds, e);
-            throw new RuntimeException("改写任务超时", e);
+            // 构建定制化提示词
+            String[] prompts = buildCustomPrompts(title, originalContent, keywords, keywordsSeo);
+            String titlePrompt = prompts[0];
+            String contentPrompt = prompts[1];
+
+            // 改写标题
+            log.info("使用定制化提示词改写标题");
+            ArticleRewrite articleRewrite = new ArticleRewrite();
+            articleRewrite.setOriginalArticleId(articleId);
+            articleRewrite.setTitle(titlePrompt);
+            articleRewrite.setContent(contentPrompt);
+            articleRewrite.setOriginalityScore(0);
+            articleRewrite.setStatus("PENDING");
+            articleRewrite.setCreateTime(LocalDateTime.now());
+            articleRewrite.setUpdateTime(LocalDateTime.now());
+            articleRewriteMapper.insert(articleRewrite);
+            return articleRewrite;
+        } catch (Exception e) {
+            log.error("根据关键词改写文章失败: articleId={}, title={}, keywordsCount={}", articleId, title, keywords.size(), e);
+            throw new RuntimeException("根据关键词改写文章失败: " + e.getMessage(), e);
         }
     }
-    
-    /**
-     * 从域名配置中提取可用的关键词
-     */
-    private List<SeoKeyword> getKeywordsFromDomainConfig(DomainConfig domainConfig) {
-        // 最终使用的关键词列表
-        List<SeoKeyword> keywordsToUse = new ArrayList<>();
-        
-        // 从域名配置中获取关键词
-        List<String> keywordTexts = domainConfig.getKeywordsSeo();
-        List<SeoKeyword> domainKeywords = domainConfig.getSeoKeywords();
-        
-        // 如果域名配置中有关联的SEO关键词对象，优先使用这些关键词
-        if (domainKeywords != null && !domainKeywords.isEmpty()) {
-            log.info("使用域名配置关联的SEO关键词: {}", 
-                    domainKeywords.stream().map(SeoKeyword::getKeyword).collect(Collectors.joining(", ")));
-            
-            // 按照关键词类型和规则筛选
-            for (SeoKeyword keyword : domainKeywords) {
-                // 只使用启用的、适用于文章内容的关键词（useScene=1或3表示适用于文章内容）
-                if (keyword.getEnabled() && (keyword.getUseScene() == 1 || keyword.getUseScene() == 3)) {
-                    keywordsToUse.add(keyword);
+
+    public void processNextPendingArticle(ArticleRewrite task) {
+        try {
+
+            log.info("开始处理任务: taskId={}, articleId={}", task.getId(), task.getOriginalArticleId());
+
+            try {
+                // 改写标题
+                log.info("开始改写标题: taskId={}", task.getId());
+                String titlePrompt = task.getTitle();
+                log.info("标题提示: {}", titlePrompt);
+                String newTitle = callModelApiWithRetry(titlePrompt);
+
+                // 改写内容
+                log.info("开始改写内容: taskId={}", task.getId());
+                String contentPrompt = task.getContent();
+                log.info("内容提示: {}", contentPrompt);
+                String newContent = callModelApiWithRetry(contentPrompt);
+
+                // 清理和格式化结果
+                newTitle = cleanAndFormatText(newTitle);
+                log.info("改写后的标题: {}", newTitle);
+                newContent = cleanAndFormatText(newContent);
+                log.info("改写后的内容: {}", newContent);
+
+                // 只有成功改写的文章才保存到数据库
+                task.setStatus("COMPLETED");
+                task.setUpdateTime(LocalDateTime.now());
+                articleRewriteMapper.updateById(task);
+                // 创建新的文章记录
+                News originalNews = newsMapper.selectById(task.getOriginalArticleId().intValue());
+                Article newArticle = new Article();
+                newArticle.setTitle(newTitle);
+                newArticle.setContent(newContent);
+                newArticle.setCategoryId(originalNews.getCategoryId());
+                newArticle.setCategoryName(originalNews.getCategoryName());
+                newArticle.setSource("(AI改写)");
+                newArticle.setAuthor(originalNews.getAuthor());
+                newArticle.setUrl(originalNews.getUrl());
+                newArticle.setPublishTime(originalNews.getPublishTime());
+                newArticle.setCreateTime(LocalDateTime.now());
+                newArticle.setUpdateTime(LocalDateTime.now());
+                newArticle.setOriginalArticleId(task.getOriginalArticleId()); // 关联原新闻ID
+                articleMapper.insert(newArticle);
+
+            } catch (Exception e) {
+                log.error("处理任务失败: taskId={}, error={}", task.getId(), e.getMessage(), e);
+                task.setStatus("FAILED");
+                task.setErrorMessage(e.getMessage());
+            }
+
+            task.setUpdateTime(LocalDateTime.now());
+            // 清理已完成或失败的任务
+            if ("COMPLETED".equals(task.getStatus()) || "FAILED".equals(task.getStatus())) {
+            }
+
+        } catch (Exception e) {
+            log.error("处理待改写文章任务异常: {}", e.getMessage(), e);
+        }
+
+    }
+
+    public void handleCompletedTask() {
+        log.info("开始处理已完成的改写任务...");
+
+        // 查询一条已完成的任务
+        LambdaQueryWrapper<ArticleRewrite> query = new LambdaQueryWrapper<>();
+        query.eq(ArticleRewrite::getStatus, "COMPLETED")
+                .orderByAsc(ArticleRewrite::getCreateTime);
+
+        List<ArticleRewrite> tasks = articleRewriteMapper.selectList(query);
+        if (tasks.isEmpty()) {
+            return;
+        }
+        for (ArticleRewrite task : tasks) {
+            try {
+                // 获取原新闻
+                News originalNews = newsMapper.selectById(task.getOriginalArticleId().intValue());
+                if (originalNews == null) {
+                    log.error("原新闻不存在: {}", task.getOriginalArticleId());
+                    return;
+                }
+
+                NewsContent originalContent = newsContentMapper.selectById(originalNews.getId());
+                if (originalContent == null) {
+                    log.error("原新闻内容不存在: {}", originalNews.getId());
+                    return;
+                }
+
+                // 更新原新闻状态
+                originalNews.setRewriteStatus("COMPLETED");
+                newsMapper.updateById(originalNews);
+
+                // 更新任务状态
+                task.setStatus("ARCHIVED");
+                articleRewriteMapper.updateById(task);
+
+            } catch (Exception e) {
+                log.error("处理已完成任务失败, ID: " + task.getOriginalArticleId(), e);
+                task.setStatus("FAILED");
+                task.setErrorMessage(e.getMessage());
+                articleRewriteMapper.updateById(task);
+
+                // 更新原新闻状态为失败
+                News news = new News();
+                news.setId(task.getOriginalArticleId().intValue());
+                news.setRewriteStatus("FAILED");
+                newsMapper.updateById(news);
+            }
+        }
+    }
+
+    private String cleanAndFormatText(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        return text.replaceAll("\\s+", " ").trim();
+    }
+
+    private String callModelApiWithRetry(String prompt) {
+        int retryCount = 0;
+        while (retryCount < MAX_RETRIES) {
+            try {
+                return callModelApi(prompt);
+            } catch (Exception e) {
+                retryCount++;
+                if (retryCount >= MAX_RETRIES) {
+                    throw e;
+                }
+                log.warn("调用模型API失败，将在{}ms后重试: {}", RETRY_DELAY, e.getMessage());
+                try {
+                    Thread.sleep(RETRY_DELAY);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("线程被中断", ie);
                 }
             }
         }
-        
-        // 如果没有关联的SEO关键词对象或筛选后为空，则使用域名配置中的普通关键词
-        if (keywordsToUse.isEmpty() && !keywordTexts.isEmpty()) {
-            log.info("使用域名配置中的普通关键词: {}", String.join(", ", keywordTexts));
-            
-            // 为每个关键词文本创建一个简单的SeoKeyword对象
-            for (String keywordText : keywordTexts) {
-                SeoKeyword keyword = new SeoKeyword();
-                keyword.setKeyword(keywordText);
-                keyword.setEnabled(true);
-                keyword.setMaxInsertions(3); // 默认最多插入3次
-                keyword.setAllowTitle(true); // 默认允许在标题中使用
-                keyword.setType(2); // 默认为长尾关键词
-                keyword.setUseScene(1); // 默认用于文章内容
-                
-                keywordsToUse.add(keyword);
+        throw new RuntimeException("达到最大重试次数");
+    }
+
+    private Integer calculateOriginalityScore(String originalContent, String newContent) {
+        if (originalContent == null || newContent == null ||
+                originalContent.isEmpty() || newContent.isEmpty()) {
+            return 0;
+        }
+        // 计算中文字符数
+        int originalChineseCount = countChineseCharacters(originalContent);
+        int newChineseCount = countChineseCharacters(newContent);
+        // 计算长度差异率
+        double lengthDiffRate = Math.abs(newChineseCount - originalChineseCount) / (double) originalChineseCount;
+        // 计算重叠率
+        int overlapCount = calculateOverlap(originalContent, newContent);
+        double overlapRate = overlapCount / (double) originalChineseCount;
+        // 计算最终得分
+        int lengthScore = lengthDiffRate <= 0.2 ? 40 : (lengthDiffRate <= 0.4 ? 30 : 20);
+        int overlapScore = (int) ((1 - overlapRate) * 60);
+        return Math.min(100, lengthScore + overlapScore);
+    }
+
+    private String callModelApi(String prompt) {
+        log.debug("调用模型API, prompt长度: {}", prompt.length());
+
+        try {
+            // 构建请求参数
+            Map<String, Object> params = new HashMap<>();
+            params.put("model", modelName);
+            params.put("messages", List.of(Map.of(
+                    "role", "user",
+                    "content", prompt)));
+            params.put("temperature", 0.7);
+            params.put("max_tokens", 8192);
+            params.put("stream", false);
+            params.put("top_p", 0.7);
+
+            log.debug("发送请求到模型API: {}", modelApiUrl);
+
+            // 使用 HttpUtil 发送请求
+            HttpResponse response = HttpUtil.createPost(modelApiUrl)
+                    .header("Authorization", "Bearer " + apiToken)
+                    .body(JSONUtil.toJsonStr(params))
+                    .execute();
+
+            String responseBody = response.body();
+            log.debug("API响应: {}", responseBody);
+
+            // 解析响应
+            JSONObject jsonResponse = JSONUtil.parseObj(responseBody);
+            if (jsonResponse.containsKey("choices")) {
+                JSONArray choices = jsonResponse.getJSONArray("choices");
+                if (!choices.isEmpty()) {
+                    JSONObject firstChoice = choices.getJSONObject(0);
+                    JSONObject message = firstChoice.getJSONObject("message");
+                    if (message != null && message.containsKey("content")) {
+                        return message.getStr("content");
+                    }
+                }
+            }
+
+            throw new RuntimeException("无法解析响应数据: " + responseBody);
+
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            log.error("调用模型API失败: {}", errorMsg);
+            throw new RuntimeException("调用模型API失败: " + errorMsg);
+        }
+    }
+
+    private int countChineseCharacters(String text) {
+        Matcher matcher = CHINESE_PATTERN.matcher(text);
+        int count = 0;
+        while (matcher.find()) {
+            count++;
+        }
+        return count;
+    }
+
+    private int calculateOverlap(String original, String newText) {
+        // 将文本分成字符数组
+        char[] originalChars = original.toCharArray();
+        char[] newChars = newText.toCharArray();
+
+        int overlapCount = 0;
+        int windowSize = 3; // 使用3个字符的滑动窗口
+
+        for (int i = 0; i <= originalChars.length - windowSize; i++) {
+            String window = new String(originalChars, i, windowSize);
+            if (newText.contains(window)) {
+                overlapCount++;
             }
         }
-        
-        // 如果最终没有可用的关键词，抛出异常
-        if (keywordsToUse.isEmpty()) {
-            throw new RuntimeException("域名配置中未找到可用的关键词: " + domainConfig.getDomain());
-        }
-        
-        return keywordsToUse;
+
+        return overlapCount;
     }
-    
-    /**
-     * 根据域名配置使用定制化提示词改写文章（使用默认超时时间）
-     * 
-     * @param articleId 文章ID
-     * @param domainConfig 域名配置
-     * @return 改写后的文章
-     */
-    public ArticleRewrite rewriteArticleWithDomainConfig(Long articleId, DomainConfig domainConfig) {
-        return rewriteArticleWithDomainConfig(articleId, domainConfig, DEFAULT_TIMEOUT);
-    }
-    
-    /**
-     * 根据域名名称使用定制化提示词改写文章
-     * 
-     * @param articleId 文章ID
-     * @param domainName 域名名称
-     * @param timeoutSeconds 超时时间（秒）
-     * @return 改写后的文章
-     */
-    public ArticleRewrite rewriteArticleWithDomainName(Long articleId, String domainName, long timeoutSeconds) {
-        log.info("根据域名名称使用定制化提示词改写文章: articleId={}, domainName={}", articleId, domainName);
-        
-        // 根据域名名称查找域名配置
-        DomainConfig domainConfig = domainConfigService.findByDomain(domainName)
-            .orElseThrow(() -> new RuntimeException("未找到域名配置: " + domainName));
-        
-        // 使用域名配置改写文章
-        return rewriteArticleWithDomainConfig(articleId, domainConfig, timeoutSeconds);
-    }
-    
-    /**
-     * 根据域名名称使用定制化提示词改写文章（使用默认超时时间）
-     * 
-     * @param articleId 文章ID
-     * @param domainName 域名名称
-     * @return 改写后的文章
-     */
-    public ArticleRewrite rewriteArticleWithDomainName(Long articleId, String domainName) {
-        return rewriteArticleWithDomainName(articleId, domainName, DEFAULT_TIMEOUT);
-    }
+
 }

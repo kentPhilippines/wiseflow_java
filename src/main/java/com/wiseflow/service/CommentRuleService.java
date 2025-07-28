@@ -93,4 +93,14 @@ public interface CommentRuleService extends IService<CommentRule> {
     void batchUpdateStatus(List<Integer> ids, Boolean enabled);
 
     List<CommentRule> getRulesByDomain(String domain);
+
+    /**
+     * 根据域名ID获取评论规则
+     * 
+     * @param domainId 域名ID
+     * @return 评论规则
+     */
+    CommentRule getByDomainId(Integer domainId);
+
+    List<CommentRule> batchConfigComment(List<Integer> batchIdsList, String phone);
 } 

@@ -1,12 +1,18 @@
 package com.wiseflow.controller;
 
+import com.wiseflow.domain.DomainConfig;
 import com.wiseflow.entity.Activity;
+import com.wiseflow.entity.ArticleRule;
+import com.wiseflow.entity.CommentRule;
+import com.wiseflow.entity.SeoKeyword;
 import com.wiseflow.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -22,8 +28,8 @@ public class IndexController {
     @Autowired
     private SeoKeywordService seoKeywordService;
 
- 
 
+ 
     @Autowired
     private ActivityService activityService;
 
@@ -118,4 +124,54 @@ public class IndexController {
     public String domain(Model model) {
         return "domain";
     }
+
+
+
+    @GetMapping("/admin/config/article")
+    public String domainConfigArticle(Model model, @RequestParam String phone, @RequestParam String batchIds) {
+        String[] batchIdArray = batchIds.split(",");
+        List<Integer> batchIdsList = new ArrayList<>();
+        for (String batchId : batchIdArray) {
+            batchIdsList.add(Integer.parseInt(batchId));
+        }
+        List<ArticleRule> articleRules = articleRuleService.batchConfigArticle(batchIdsList, phone);
+        model.addAttribute("articleRules", articleRules);
+        model.addAttribute("domainIds", batchIdsList);
+        model.addAttribute("phone", phone);
+        return "fragments/article-config";
+    }
+
+    @GetMapping("/admin/config/comment")
+    public String domainConfigComment(Model model, @RequestParam String phone, @RequestParam String batchIds) {
+        //batchIds=62,61,60,59,58,57,56,55,54,53&phone=15236996370
+        String[] batchIdArray = batchIds.split(",");
+        List<Integer> batchIdsList = new ArrayList<>();
+        for (String batchId : batchIdArray) {
+            batchIdsList.add(Integer.parseInt(batchId));
+        }
+        List<CommentRule> commentRules = commentRuleService.batchConfigComment(batchIdsList, phone);
+        model.addAttribute("commentRules", commentRules);
+        model.addAttribute("domainIds", batchIdsList);
+        model.addAttribute("phone", phone);
+        return "fragments/comment-config";
+    }
+
+    @GetMapping("/admin/config/keyword")
+    public String domainConfigKeyword(Model model, @RequestParam String phone, @RequestParam String batchIds) {
+        String[] batchIdArray = batchIds.split(",");
+        List<Integer> batchIdsList = new ArrayList<>();
+        for (String batchId : batchIdArray) {
+            batchIdsList.add(Integer.parseInt(batchId));
+        }
+        List<SeoKeyword> seoKeywords = seoKeywordService.batchConfigKeyword(batchIdsList, phone);
+        model.addAttribute("seoKeywords", seoKeywords);
+        model.addAttribute("domainIds", batchIdsList);
+        model.addAttribute("phone", phone);
+        return "fragments/keyword-config";
+    }
+    
+
+    
+    
+
 } 

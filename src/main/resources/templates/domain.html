@@ -1,98 +1,46 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>域名配置管理</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- 添加SheetJS库 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         .card {
             margin-bottom: 20px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
-        .form-group {
-            margin-bottom: 15px;
-        }
+
         .table-responsive {
             margin-top: 20px;
         }
+
         .action-buttons .btn {
             margin-right: 5px;
         }
-        .friendly-link-item {
-            border: 1px solid #ddd;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            position: relative;
-        }
-        .remove-link {
+
+        /* 自定义tooltip样式 */
+        .custom-tooltip {
             position: absolute;
-            top: 10px;
-            right: 10px;
-            cursor: pointer;
-            color: #dc3545;
-        }
-        #importModal .modal-dialog {
-            max-width: 700px;
-        }
-        .status-badge {
-            font-size: 0.8rem;
-        }
-        .preview-section {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-top: 15px;
-        }
-        .preview-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-        .preview-description {
-            color: #6c757d;
-            margin-bottom: 10px;
-        }
-        .preview-keywords {
-            font-size: 0.9rem;
-            color: #28a745;
-        }
-        .preview-links {
-            margin-top: 10px;
-        }
-        .preview-links a {
-            margin-right: 15px;
-            text-decoration: none;
-        }
-        .stat-card {
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            transition: transform 0.3s;
-            margin-bottom: 20px;
-        }
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-        .stat-card .card-body {
-            padding: 20px;
-        }
-        .stat-card .card-title {
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
             font-size: 14px;
-            color: #6c757d;
-            margin-bottom: 10px;
-        }
-        .stat-card .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 0;
-        }
-        .stat-card .stat-icon {
-            font-size: 24px;
-            margin-right: 10px;
+            max-width: 300px;
+            z-index: 1000;
+            word-wrap: break-word;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
+
 <body>
     <div class="container-fluid py-4">
         <div class="row">
@@ -101,35 +49,45 @@
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">域名配置管理</h5>
                         <div>
-                            <div class="btn-group me-2" id="batchOperations" style="display: none;">
-                                <button class="btn btn-sm btn-light" id="batchEnableBtn">
-                                    <i class="bi bi-check-circle"></i> 批量启用
-                                </button>
-                                <button class="btn btn-sm btn-light" id="batchDisableBtn">
-                                    <i class="bi bi-x-circle"></i> 批量禁用
-                                </button>
-                                <button class="btn btn-sm btn-danger" id="batchDeleteBtn">
-                                    <i class="bi bi-trash"></i> 批量删除
-                                </button>
-                            </div>
-                            <button class="btn btn-sm btn-outline-light me-2" id="downloadTemplateBtn">
-                                <i class="bi bi-download"></i> 下载模板
-                            </button>
-                            <a href="/admin/config/domain/excel-template" class="btn btn-sm btn-outline-light me-2">
-                                <i class="bi bi-file-earmark-excel"></i> Excel模板
+                            <a href="/comment/rule" class="btn btn-sm btn-outline-light me-2">
+                                <i class="fas fa-comments me-2"></i>
+                                <span th:text="#{rule.comment}">评论规则</span>
+                            </a>
+                            <a href="/seo-keywords" class="btn btn-sm btn-outline-light me-2">
+                                <i class="fas fa-tags me-2"></i>
+                                <span th:text="#{rule.seo}">SEO关键词</span>
+                            </a>
+                            <a href="/article/rule" class="btn btn-sm btn-outline-light me-2">
+                                <i class="fas fa-file-alt me-2"></i>
+                                <span th:text="#{rule.article}">文章分配规则</span>
                             </a>
                             <button class="btn btn-sm btn-light me-2" id="uploadTemplateBtn">
-                                <i class="bi bi-upload"></i> 上传模板
-                            </button>
-                            <button class="btn btn-sm btn-light me-2" data-bs-toggle="modal" data-bs-target="#importModal">
-                                <i class="bi bi-upload"></i> 批量导入
-                            </button>
-                            <button class="btn btn-sm btn-success" id="addNewBtn">
-                                <i class="bi bi-plus-circle"></i> 添加新配置
+                                <i class="bi bi-upload"></i> 批量上站
                             </button>
                         </div>
                     </div>
                     <div class="card-body">
+                        <!-- 批量操作工具栏 -->
+                        <div id="batchOperations" class="mb-3 p-2 bg-light rounded d-none">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-muted">
+                                    <i class="bi bi-check-square me-1"></i>
+                                    已选中 <span id="selectedCount" class="fw-bold text-primary">0</span> 个域名配置
+                                </span>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-success" onclick="batchUpdateSelectedStatus(1)">
+                                        <i class="bi bi-check-circle"></i> 批量启用
+                                    </button>
+                                    <button type="button" class="btn btn-outline-warning" onclick="batchUpdateSelectedStatus(0)">
+                                        <i class="bi bi-pause-circle"></i> 批量禁用
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger" onclick="batchDeleteSelected()">
+                                        <i class="bi bi-trash"></i> 批量删除
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
                                 <thead>
@@ -139,18 +97,15 @@
                                                 <input class="form-check-input" type="checkbox" id="selectAll">
                                             </div>
                                         </th>
-                                        <th>域名</th>
-                                        <th>标题</th>
-                                        <th>描述</th>
-                                        <th>关键词</th>
-                                        <th>模板</th>
-                                        <th>状态</th>
-                                        <th>创建时间</th>
-                                        <th>操作</th>
+                                        <th>服务器编号</th>
+                                        <th>批次数量</th>
+                                        <th>域名总数</th>
+                                    <!--     <th>状态</th>
+                                        <th>操作</th> -->
                                     </tr>
                                 </thead>
-                                <tbody id="configTableBody">
-                                    <!-- 数据将通过JavaScript动态加载 -->
+                                <tbody id="phoneGroupTableBody">
+                                    <!-- 手机号分组数据将通过JavaScript动态加载 -->
                                 </tbody>
                             </table>
                         </div>
@@ -160,233 +115,111 @@
         </div>
     </div>
 
-    <!-- 编辑/添加配置表单 -->
-    <div class="modal fade" id="configModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <!-- 上传模板模态框 -->
+    <div class="modal fade" id="uploadTemplateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalTitle">添加域名配置</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="configForm">
-                        <input type="hidden" id="configId">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="domain" class="form-label">域名 <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="domain" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="status" class="form-label">状态</label>
-                                    <select class="form-select" id="status">
-                                        <option value="1">启用</option>
-                                        <option value="0">禁用</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="title" class="form-label">网站标题 <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="title" required>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="description" class="form-label">网站描述</label>
-                                    <textarea class="form-control" id="description" rows="3"></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="keywords" class="form-label">关键词</label>
-                                    <input type="text" class="form-control" id="keywords" placeholder="多个关键词请用英文逗号分隔">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="template" class="form-label">模板路径</label>
-                                    <select class="form-select" id="template">
-                                        <option value="default">默认模板</option>
-                                        <option value="news">新闻模板</option>
-                                        <option value="blog">博客模板</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle"></i> 其他配置项将自动生成，您可以在保存后进行修改。
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedOptions" aria-expanded="false">
-                                    高级选项 <i class="bi bi-chevron-down"></i>
-                                </button>
-                                <small class="text-muted ms-2">（可以使用系统默认值）</small>
-                            </div>
-                        </div>
-                        
-                        <div class="collapse mt-3" id="advancedOptions">
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="dailyAddNewsCount" class="form-label">每天新增文章数量</label>
-                                    <input type="number" class="form-control" id="dailyAddNewsCount" min="50" value="50">
-                                    <small class="form-text text-muted">每天最少需要新增50篇文章</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="logoUrl" class="form-label">Logo URL</label>
-                                    <input type="text" class="form-control" id="logoUrl">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="faviconUrl" class="form-label">Favicon URL</label>
-                                    <input type="text" class="form-control" id="faviconUrl">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="copyright" class="form-label">版权信息</label>
-                                    <input type="text" class="form-control" id="copyright">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="icp" class="form-label">备案号</label>
-                                    <input type="text" class="form-control" id="icp">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="viewsPath" class="form-label">模板路径</label>
-                                    <input type="text" class="form-control" id="viewsPath">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="contactPhone" class="form-label">联系电话</label>
-                                    <input type="text" class="form-control" id="contactPhone">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="contactEmail" class="form-label">联系邮箱</label>
-                                    <input type="email" class="form-control" id="contactEmail">
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="contactAddress" class="form-label">联系地址</label>
-                                    <input type="text" class="form-control" id="contactAddress">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mt-3">
-                            <div class="col-12">
-                                <h5>友情链接</h5>
-                                <div id="friendlyLinksContainer">
-                                    <!-- 友情链接将在这里动态添加 -->
-                                </div>
-                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="addLinkBtn">
-                                    <i class="bi bi-plus-circle"></i> 添加友情链接
-                                </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mt-4">
-                            <div class="col-12">
-                                <h5>预览</h5>
-                                <div class="preview-section">
-                                    <div class="preview-title" id="previewTitle">网站标题</div>
-                                    <div class="preview-description" id="previewDescription">网站描述</div>
-                                    <div class="preview-keywords" id="previewKeywords">关键词1, 关键词2, 关键词3</div>
-                                    <div class="preview-links" id="previewLinks">
-                                        <!-- 友情链接预览 -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" id="saveConfigBtn">保存</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 批量导入模态框 -->
-    <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">批量导入域名配置</h5>
+                    <h5 class="modal-title">上传配置模板</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="importData" class="form-label">JSON格式配置数据</label>
-                        <textarea class="form-control" id="importData" rows="10" placeholder='[
-  {
-    "domain": "example.com",
-    "title": "示例网站",
-    "description": "这是一个示例网站",
-    "keywords": "示例,网站,测试",
-    "viewsPath": "/templates/default"
-  }
-]'></textarea>
+                        <label for="templateFile" class="form-label">选择模板文件</label>
+                        <input class="form-control" type="file" id="templateFile" accept=".xlsx,.xls">
+                        <div class="form-text">支持Excel格式</div>
                     </div>
                     <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="overwriteExisting">
-                        <label class="form-check-label" for="overwriteExisting">
-                            覆盖已存在的域名配置
+                        <input class="form-check-input" type="checkbox" id="templateOverwriteExisting">
+                        <label class="form-check-label" for="templateOverwriteExisting">
+                            默认覆盖已存在的域名配置
                         </label>
+                    </div>
+                    <div class="mt-3">
+                        <a href="/admin/config/domain/excel-template" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-download"></i> 下载Excel模板
+                        </a>
+                    </div>
+
+                    <!-- 添加解析结果预览区域 -->
+                    <div id="parseResultArea" class="mt-4 d-none">
+                        <h6 class="border-bottom pb-2">数据预览</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>域名</th>
+                                        <th>标题</th>
+                                        <th>描述</th>
+                                        <th>关键词</th>
+                                        <th>服务器编号</th>
+                                        <th>手机号</th>
+                                        <th>状态</th>
+                                        <th>配置</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="parseResultTableBody">
+                                    <!-- 解析结果将在这里动态显示 -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 统计信息 -->
+                        <div class="alert alert-info mt-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span>总记录: <span id="totalRecords" class="fw-bold">0</span></span>
+                                    <span class="ms-3">新增: <span id="newRecords"
+                                            class="fw-bold text-success">0</span></span>
+                                    <span class="ms-3">冲突: <span id="conflictRecords"
+                                            class="fw-bold text-warning">0</span></span>
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-secondary"
+                                        id="cancelParseBtn">取消</button>
+                                    <button type="button" class="btn btn-sm btn-primary ms-2"
+                                        id="startImportBtn">开始导入</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 导入进度和日志 -->
+                    <div id="importProgressArea" class="mt-4 d-none">
+                        <h6 class="border-bottom pb-2">导入进度</h6>
+                        <div class="progress mb-3">
+                            <div id="importProgressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                                role="progressbar" style="width: 0%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>已处理: <span id="processedCount" class="fw-bold">0</span>/<span
+                                    id="totalCount">0</span></span>
+                            <span>成功: <span id="successCount" class="fw-bold text-success">0</span></span>
+                            <span>失败: <span id="failCount" class="fw-bold text-danger">0</span></span>
+                        </div>
+
+                        <!-- 导入日志 -->
+                        <div class="card">
+                            <div class="card-header bg-light py-1 d-flex justify-content-between align-items-center">
+                                <span>导入日志</span>
+                                <button class="btn btn-sm btn-outline-secondary" id="copyLogsBtn">
+                                    <i class="bi bi-clipboard"></i> 复制
+                                </button>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="importLogs" class="bg-dark text-light p-2"
+                                    style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" id="importBtn">导入</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="parseExcelBtn">解析Excel</button>
+                    <button type="button" class="btn btn-success d-none" id="completeImportBtn"
+                        data-bs-dismiss="modal">完成导入</button>
                 </div>
             </div>
         </div>
@@ -411,35 +244,41 @@
         </div>
     </div>
 
-    <!-- 上传模板模态框 -->
-    <div class="modal fade" id="uploadTemplateModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
+    <!-- 批量删除确认模态框 -->
+    <div class="modal fade" id="batchDeleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">上传配置模板</h5>
+                    <h5 class="modal-title">批量删除确认</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="templateFile" class="form-label">选择模板文件</label>
-                        <input class="form-control" type="file" id="templateFile" accept=".json,.txt,.xlsx,.xls">
-                        <div class="form-text">支持JSON、TXT、Excel格式，推荐使用Excel格式</div>
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <strong>警告：</strong>此操作将永久删除域名配置，无法恢复！
                     </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="templateOverwriteExisting">
-                        <label class="form-check-label" for="templateOverwriteExisting">
-                            覆盖已存在的域名配置
-                        </label>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>批次号：</strong><span id="batchDeletePhone" class="fw-bold text-primary"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="batchDeleteTypeInfo">
+                                <!-- 删除类型和数量信息将在这里动态显示 -->
+                            </div>
+                        </div>
                     </div>
                     <div class="mt-3">
-                        <a href="/admin/config/domain/excel-template" class="btn btn-outline-primary btn-sm">
-                            <i class="bi bi-download"></i> 下载Excel模板
-                        </a>
+                        <h6>将删除以下域名：</h6>
+                        <div id="batchDeleteDomainList" class="border rounded p-2 bg-light" style="max-height: 250px; overflow-y: auto;">
+                            <!-- 域名列表将在这里动态显示 -->
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" id="confirmUploadBtn">上传并导入</button>
+                    <button type="button" class="btn btn-danger" id="confirmBatchDeleteBtn">
+                        <i class="bi bi-trash"></i> 确认删除
+                    </button>
                 </div>
             </div>
         </div>
@@ -447,290 +286,1251 @@
 
     <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/seo-keywords.js"></script>
     <script>
         // API基础URL
         const API_BASE_URL = '/admin/config';
-        
+
         // DOM元素
-        const configTableBody = document.getElementById('configTableBody');
-        const configModal = new bootstrap.Modal(document.getElementById('configModal'));
+        const phoneGroupTableBody = document.getElementById('phoneGroupTableBody');
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-        const importModal = new bootstrap.Modal(document.getElementById('importModal'));
+        const batchDeleteModal = new bootstrap.Modal(document.getElementById('batchDeleteModal'));
         const uploadTemplateModal = new bootstrap.Modal(document.getElementById('uploadTemplateModal'));
-        
+
         // 当前操作的配置ID
         let currentConfigId = null;
-        
-        // 默认模板数据
-        const defaultTemplate = {
-            domain: "",
-            title: "",
-            description: "默认网站描述",
-            keywords: "关键词1,关键词2,关键词3",
-            logoUrl: "/static/images/logo.png",
-            faviconUrl: "/static/images/favicon.ico",
-            copyright: "© 2023 All rights reserved.",
-            icp: "ICP备xxxxxxxx号",
-            viewsPath: "/templates/default",
-            contactPhone: "010-12345678",
-            contactEmail: "contact@example.com",
-            contactAddress: "默认地址",
-            status: 1,
-            dailyAddNewsCount: 50,
-            friendlyLinkList: [
-                {
-                    name: "示例链接1",
-                    url: "https://example1.com",
-                    description: "示例链接1描述",
-                    sort: 0
-                },
-                {
-                    name: "示例链接2",
-                    url: "https://example2.com",
-                    description: "示例链接2描述",
-                    sort: 1
-                }
-            ]
+
+        // 保存所有配置的数据
+        let allConfigurations = [];
+
+        // 导入相关变量
+        let parsedData = [];
+        let importQueue = [];
+        let isImporting = false;
+        let importStats = {
+            total: 0,
+            processed: 0,
+            success: 0,
+            failed: 0,
+            logs: []
         };
-        
+
+        // tooltip元素
+        let tooltipElement = null;
+
+        // 显示工具提示
+        function showTooltip(event, tooltipText) {
+            if (!tooltipText || tooltipText === '-') return;
+
+            // 隐藏任何现有工具提示
+            hideTooltip();
+
+            // 创建新的工具提示元素
+            tooltipElement = document.createElement('div');
+            tooltipElement.className = 'custom-tooltip';
+            tooltipElement.textContent = tooltipText;
+            document.body.appendChild(tooltipElement);
+
+            // 定位工具提示
+            const x = event.clientX + 10;
+            const y = event.clientY + 10;
+
+            // 确保工具提示不会超出视口
+            const tooltipWidth = tooltipElement.offsetWidth;
+            const tooltipHeight = tooltipElement.offsetHeight;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            let finalX = x;
+            let finalY = y;
+
+            if (x + tooltipWidth > viewportWidth) {
+                finalX = viewportWidth - tooltipWidth - 10;
+            }
+
+            if (y + tooltipHeight > viewportHeight) {
+                finalY = viewportHeight - tooltipHeight - 10;
+            }
+
+            tooltipElement.style.left = finalX + 'px';
+            tooltipElement.style.top = finalY + 'px';
+            tooltipElement.style.opacity = '1';
+        }
+
+        // 隐藏工具提示
+        function hideTooltip() {
+            if (tooltipElement) {
+                document.body.removeChild(tooltipElement);
+                tooltipElement = null;
+            }
+        }
+
         // 页面加载完成后执行
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // 加载所有配置
             loadConfigurations();
-            
-            // 添加新配置按钮点击事件
-            document.getElementById('addNewBtn').addEventListener('click', function() {
-                resetForm();
-                document.getElementById('modalTitle').textContent = '添加域名配置';
-                configModal.show();
-            });
-            
-            // 保存配置按钮点击事件
-            document.getElementById('saveConfigBtn').addEventListener('click', saveConfiguration);
-            
+
             // 确认删除按钮点击事件
             document.getElementById('confirmDeleteBtn').addEventListener('click', deleteConfiguration);
-            
-            // 导入按钮点击事件
-            document.getElementById('importBtn').addEventListener('click', importConfigurations);
-            
-            // 添加友情链接按钮点击事件
-            document.getElementById('addLinkBtn').addEventListener('click', addFriendlyLinkField);
-            
-            // 下载模板按钮点击事件
-            document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
-            
+
+            // 确认批量删除按钮点击事件
+            document.getElementById('confirmBatchDeleteBtn').addEventListener('click', function() {
+                const phone = this.getAttribute('data-phone');
+                const configIds = this.getAttribute('data-config-ids').split(',');
+                batchDeleteModal.hide();
+                executeBatchDeleteConfirmed(configIds, phone);
+            });
+
             // 上传模板按钮点击事件
-            document.getElementById('uploadTemplateBtn').addEventListener('click', function() {
+            document.getElementById('uploadTemplateBtn').addEventListener('click', function () {
+                // 重置相关UI状态
+                resetImportState();
                 uploadTemplateModal.show();
             });
-            
-            // 确认上传模板按钮点击事件
-            document.getElementById('confirmUploadBtn').addEventListener('click', uploadTemplate);
-            
-            // 实时预览
-            document.getElementById('title').addEventListener('input', updatePreview);
-            document.getElementById('description').addEventListener('input', updatePreview);
-            document.getElementById('keywords').addEventListener('input', updatePreview);
+
+            // 解析Excel按钮点击事件
+            document.getElementById('parseExcelBtn').addEventListener('click', function () {
+                parseExcelFile();
+            });
+
+            // 取消解析按钮点击事件
+            document.getElementById('cancelParseBtn').addEventListener('click', function () {
+                document.getElementById('parseResultArea').classList.add('d-none');
+                document.getElementById('parseExcelBtn').classList.remove('d-none');
+                document.getElementById('templateFile').value = '';
+            });
+
+            // 开始导入按钮点击事件
+            document.getElementById('startImportBtn').addEventListener('click', function () {
+                startImport();
+            });
+
+            // 复制日志按钮点击事件
+            document.getElementById('copyLogsBtn').addEventListener('click', function () {
+                copyImportLogs();
+            });
+
+            // 完成导入按钮点击事件
+            document.getElementById('completeImportBtn').addEventListener('click', function () {
+                // 关闭模态框并刷新数据
+                uploadTemplateModal.hide();
+                loadConfigurations();
+            });
         });
-        
+
+        // 重置导入状态
+        function resetImportState() {
+            // 重置数据
+            parsedData = [];
+            importQueue = [];
+            isImporting = false;
+            importStats = {
+                total: 0,
+                processed: 0,
+                success: 0,
+                failed: 0,
+                logs: []
+            };
+
+            // 重置UI元素
+            document.getElementById('parseResultArea').classList.add('d-none');
+            document.getElementById('importProgressArea').classList.add('d-none');
+            document.getElementById('parseExcelBtn').classList.remove('d-none');
+            document.getElementById('completeImportBtn').classList.add('d-none');
+            document.getElementById('templateFile').value = '';
+            document.getElementById('parseResultTableBody').innerHTML = '';
+            document.getElementById('importLogs').innerHTML = '';
+
+            // 重置计数器
+            document.getElementById('totalRecords').textContent = '0';
+            document.getElementById('newRecords').textContent = '0';
+            document.getElementById('conflictRecords').textContent = '0';
+            document.getElementById('processedCount').textContent = '0';
+            document.getElementById('totalCount').textContent = '0';
+            document.getElementById('successCount').textContent = '0';
+            document.getElementById('failCount').textContent = '0';
+            document.getElementById('importProgressBar').style.width = '0%';
+        }
+
+        // 解析Excel文件
+        function parseExcelFile() {
+            const fileInput = document.getElementById('templateFile');
+            if (fileInput.files.length === 0) {
+                alert('请选择模板文件');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            // 添加加载指示器
+            document.getElementById('parseExcelBtn').innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>解析中...';
+            document.getElementById('parseExcelBtn').disabled = true;
+
+            reader.onload = function (e) {
+                try {
+                    // 使用SheetJS解析Excel
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    // 获取第一个工作表
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+
+                    // 转换为JSON
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                    // 检查格式
+                    if (jsonData.length < 2) {
+                        throw new Error('Excel文件格式不正确或没有数据');
+                    }
+
+                    // 提取表头
+                    const headers = jsonData[0];
+
+                    // 检查必要的字段
+                    const requiredFields = ['域名'];
+                    const missingFields = requiredFields.filter(field => !headers.includes(field));
+
+                    if (missingFields.length > 0) {
+                        throw new Error(`Excel文件缺少必要的字段: ${missingFields.join(', ')}`);
+                    }
+
+                    // 检查是否包含服务器编号字段
+                    const hasServerInfo = headers.includes('服务器编号') || headers.includes('备注');
+                    if (hasServerInfo) {
+                        console.log('Excel文件包含服务器编号字段');
+                    } else {
+                        console.warn('Excel文件未包含服务器编号字段，将使用默认值');
+                    }
+
+                    // 检查可选字段的存在性
+                    const optionalFields = ['模版', '评论规则', '改写规则', '文章分配规则', '服务器编号'];
+                    const presentOptionalFields = optionalFields.filter(field => headers.includes(field));
+                    console.log(`发现以下可选字段: ${presentOptionalFields.join(', ')}`);
+
+                    // 提取数据
+                    parsedData = [];
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (row.length === 0 || !row[0]) continue;  // 跳过空行
+
+                        const item = {};
+                        for (let j = 0; j < headers.length; j++) {
+                            item[headers[j]] = row[j] !== undefined ? row[j] : '';
+                        }
+
+                        // 添加状态字段
+                        item['状态'] = item['状态'] || '启用';
+
+                        // 确保配置字段有合适的默认值
+                        item['模版'] = item['模版'] || '';
+                        item['评论规则'] = item['评论规则'] || '';
+                        item['改写规则'] = item['改写规则'] || '';
+                        item['文章分配规则'] = item['文章分配规则'] || '';
+                        
+                        // 处理服务器编号字段（支持多种字段名）
+                        item['服务器编号'] = item['服务器编号'] || item['备注'] || '默认服务器';
+
+                        // 验证域名
+                        if (!item['域名']) {
+                            continue;  // 跳过无域名记录
+                        }
+
+                        parsedData.push(item);
+                    }
+
+                    if (parsedData.length === 0) {
+                        throw new Error('没有找到有效的数据记录');
+                    }
+
+                    // 检查是否存在冲突（已存在的域名）
+                    checkConflicts(parsedData).then(result => {
+                        // 重置UI
+                        document.getElementById('parseExcelBtn').innerHTML = '解析Excel';
+                        document.getElementById('parseExcelBtn').disabled = false;
+                        document.getElementById('parseExcelBtn').classList.add('d-none');
+                        // 显示解析结果
+                        document.getElementById('parseResultArea').classList.remove('d-none');
+                        // 更新统计信息
+                        document.getElementById('totalRecords').textContent = result.total;
+                        document.getElementById('newRecords').textContent = result.new;
+                        document.getElementById('conflictRecords').textContent = result.conflict;
+                        // 渲染表格
+                        renderParseResultTable(result.data);
+                    }).catch(error => {
+                        alert(`检查冲突失败: ${error.message}`);
+                        document.getElementById('parseExcelBtn').innerHTML = '解析Excel';
+                        document.getElementById('parseExcelBtn').disabled = false;
+                    });
+
+                } catch (error) {
+                    console.error('Excel解析错误:', error);
+                    alert(`Excel解析失败: ${error.message}`);
+                    // 重置UI
+                    document.getElementById('parseExcelBtn').innerHTML = '解析Excel';
+                    document.getElementById('parseExcelBtn').disabled = false;
+                }
+            };
+
+            reader.onerror = function () {
+                alert('读取文件失败');
+                document.getElementById('parseExcelBtn').innerHTML = '解析Excel';
+                document.getElementById('parseExcelBtn').disabled = false;
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 检查数据冲突
+        async function checkConflicts(data) {
+            // 准备检查域名是否已存在
+            const domains = data.map(item => item['域名']);
+            const defaultOverwrite = document.getElementById('templateOverwriteExisting').checked;
+
+            try {
+                // 调用后端API检查域名是否存在
+                const response = await fetch(`${API_BASE_URL}/domain/check-exists`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(domains)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP错误！状态: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const existingDomains = new Set(result);
+
+                // 标记冲突数据
+                let newCount = 0;
+                let conflictCount = 0;
+
+                data.forEach(item => {
+                    const isDuplicate = existingDomains.has(item['域名']);
+                    item['_conflict'] = isDuplicate;
+                    item['_overwrite'] = defaultOverwrite;
+
+                    if (isDuplicate) {
+                        conflictCount++;
+                    } else {
+                        newCount++;
+                    }
+                });
+
+                return {
+                    data: data,
+                    total: data.length,
+                    new: newCount,
+                    conflict: conflictCount
+                };
+
+            } catch (error) {
+                console.error('检查域名冲突失败:', error);
+
+                // 如果API调用失败，我们可以回退到客户端检查
+                // 这只是一个简单的回退方案，实际上我们应该基于现有数据进行更精确的检查
+                console.log("API调用失败，使用客户端缓存检查");
+
+                // 从现有配置中提取所有域名
+                const existingDomains = new Set(
+                    allConfigurations.map(config => config.domain)
+                );
+
+                // 标记冲突数据
+                let newCount = 0;
+                let conflictCount = 0;
+
+                data.forEach(item => {
+                    const isDuplicate = existingDomains.has(item['域名']);
+                    item['_conflict'] = isDuplicate;
+                    item['_overwrite'] = defaultOverwrite;
+
+                    if (isDuplicate) {
+                        conflictCount++;
+                    } else {
+                        newCount++;
+                    }
+                });
+
+                return {
+                    data: data,
+                    total: data.length,
+                    new: newCount,
+                    conflict: conflictCount
+                };
+            }
+        }
+
+        // 渲染解析结果表格
+        function renderParseResultTable(data) {
+            const tableBody = document.getElementById('parseResultTableBody');
+            tableBody.innerHTML = '';
+
+            // 生成批次号
+            const batchPhone = generateRandomPhone();
+
+            data.forEach((item, index) => {
+                const row = document.createElement('tr');
+                row.className = item['_conflict'] ? 'table-warning' : '';
+
+                // 为每条记录添加批次号
+                item['批次号'] = batchPhone;
+
+                row.innerHTML = `
+                    <td>${item['域名']}</td>
+                    <td>${item['标题'] || '-'}</td>
+                    <td>${item['描述'] || '-'}</td>
+                    <td>${item['关键词'] || '-'}</td>
+                    <td>${item['服务器编号'] || '-'}</td>
+                    <td>${item['批次号']}</td>
+                    <td>${item['状态'] === '禁用' ? '禁用' : '启用'}</td>
+                    <td>
+                        <small>模版: ${item['模版'] || '-'}</small><br>
+                        <small>评论: ${item['评论规则'] || '-'}</small><br>
+                        <small>改写: ${item['改写规则'] || '-'}</small><br>
+                        <small>文章: ${item['文章分配规则'] || '-'}</small>
+                    </td>
+                    <td>
+                        ${item['_conflict'] ?
+                        `<div class="form-check form-switch">
+                                <input class="form-check-input overwrite-switch" type="checkbox" 
+                                    data-index="${index}" ${item['_overwrite'] ? 'checked' : ''}>
+                                <label class="form-check-label small">覆盖</label>
+                            </div>` :
+                        '<span class="badge bg-success">新增</span>'}
+                    </td>
+                `;
+
+                tableBody.appendChild(row);
+            });
+
+            // 添加覆盖开关事件
+            document.querySelectorAll('.overwrite-switch').forEach(switchEl => {
+                switchEl.addEventListener('change', function () {
+                    const index = this.getAttribute('data-index');
+                    parsedData[index]['_overwrite'] = this.checked;
+
+                    // 重新计算覆盖统计
+                    updateOverwriteStats();
+                });
+            });
+        }
+
+        // 更新覆盖统计
+        function updateOverwriteStats() {
+            const overwriteCount = parsedData.filter(item => item['_conflict'] && item['_overwrite']).length;
+            const skipCount = parsedData.filter(item => item['_conflict'] && !item['_overwrite']).length;
+            const newCount = parsedData.filter(item => !item['_conflict']).length;
+
+            document.getElementById('newRecords').textContent = newCount;
+            document.getElementById('conflictRecords').textContent = `${overwriteCount}覆盖/${skipCount}跳过`;
+        }
+
+        // 开始导入
+        function startImport() {
+            // 过滤掉不导入的记录（冲突且不覆盖）
+            importQueue = parsedData.filter(item => !item['_conflict'] || item['_overwrite']);
+
+            if (importQueue.length === 0) {
+                alert('没有需要导入的数据');
+                return;
+            }
+
+            // 确认导入
+            if (!confirm(`将导入${importQueue.length}条数据，其中${parsedData.filter(item => !item['_conflict']).length}条新增，${parsedData.filter(item => item['_conflict'] && item['_overwrite']).length}条覆盖。确定继续吗？`)) {
+                return;
+            }
+
+            // 为本批次生成一个随机批次号（手机号）
+            const batchPhone = generateRandomPhone();
+
+            // 初始化导入状态
+            importStats = {
+                total: importQueue.length,
+                processed: 0,
+                success: 0,
+                failed: 0,
+                logs: [],
+                batchPhone: batchPhone
+            };
+
+            // 更新UI
+            document.getElementById('parseResultArea').classList.add('d-none');
+            document.getElementById('importProgressArea').classList.remove('d-none');
+            document.getElementById('totalCount').textContent = importStats.total;
+
+            // 标记导入开始
+            isImporting = true;
+
+            // 添加导入日志
+            addImportLog('开始导入，批次号: ' + batchPhone + '，共' + importStats.total + '条数据');
+
+            // 开始导入
+            processNextItem();
+        }
+
+        // 处理下一个导入项
+        function processNextItem() {
+            if (importQueue.length === 0 || !isImporting) {
+                // 导入完成
+                completeImport();
+                return;
+            }
+
+            // 取出队列中的第一项
+            const item = importQueue.shift();
+
+            // 打印数据类型，帮助调试
+            console.log('正在处理项目:', item);
+            console.log('评论规则类型:', typeof item['评论规则'], '值:', item['评论规则']);
+            console.log('改写规则类型:', typeof item['改写规则'], '值:', item['改写规则']);
+            console.log('文章规则类型:', typeof item['文章分配规则'], '值:', item['文章分配规则']);
+
+            // 构建API参数
+            const domainConfig = {
+                domain: item['域名'],
+                title: item['标题'] || '',
+                description: item['描述'] || '',
+                keywords: item['关键词'] || '',
+                serverInfo: item['服务器编号'] || '',
+                contactPhone: importStats.batchPhone, // 使用本批次的批次号
+                status: item['状态'] === '禁用' ? 0 : 1,
+                // 添加模版和规则字段，确保传递字符串到parseRuleIds
+                viewsPath: item['模版'] || '',
+                commentRuleIds: parseRuleIds(String(item['评论规则'] || '')),
+                rewriteRuleIds: parseRuleIds(String(item['改写规则'] || '')),
+                articleRuleIds: parseRuleIds(String(item['文章分配规则'] || ''))
+            };
+
+            // 记录开始导入该项
+            addImportLog(`正在导入: ${domainConfig.domain}`);
+
+            // 调用API导入单条数据
+            fetch(`${API_BASE_URL}/domain/single`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    domainConfig: domainConfig,
+                    overwrite: item['_conflict'] && item['_overwrite']
+                })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP错误！状态: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    // 更新统计
+                    importStats.processed++;
+
+                    if (result.success) {
+                        importStats.success++;
+                        // 更新日志
+                        addImportLog(`导入成功: ${domainConfig.domain}`);
+                    } else {
+                        importStats.failed++;
+                        addImportLog(`导入失败: ${domainConfig.domain} - ${result.message || '未知错误'}`, true);
+                    }
+
+                    // 更新UI
+                    updateImportProgress();
+
+                    // 处理下一项（稍微延迟以避免请求过快）
+                    setTimeout(processNextItem, 200);
+                })
+                .catch(error => {
+                    console.error('导入失败:', error);
+
+                    // 更新统计
+                    importStats.processed++;
+                    importStats.failed++;
+
+                    // 更新日志
+                    addImportLog(`导入失败: ${domainConfig.domain} - ${error.message}`, true);
+
+                    // 更新UI
+                    updateImportProgress();
+
+                    // 处理下一项
+                    setTimeout(processNextItem, 200);
+                });
+        }
+
+        // 解析规则ID字符串为数组
+        function parseRuleIds(idString) {
+            // 确保输入是字符串
+            if (!idString || idString === '-' || typeof idString !== 'string') {
+                // 如果输入是数字，直接返回包含该数字的数组
+                if (typeof idString === 'number') {
+                    return [idString];
+                }
+                // 如果输入已经是数组，直接返回
+                if (Array.isArray(idString)) {
+                    return idString;
+                }
+                // 其他情况返回空数组
+                return [];
+            }
+
+            return idString.split(',')
+                .map(id => id.trim())
+                .filter(id => id && !isNaN(parseInt(id)))
+                .map(id => parseInt(id));
+        }
+
+        // 生成随机手机号
+        function generateRandomPhone() {
+            // 生成随机手机号
+            let phone = "1";
+
+            // 第二位数字：3, 4, 5, 6, 7, 8, 9
+            const secondDigits = ["3", "4", "5", "6", "7", "8", "9"];
+            phone += secondDigits[Math.floor(Math.random() * secondDigits.length)];
+
+            // 生成剩余9位数字
+            for (let i = 0; i < 9; i++) {
+                phone += Math.floor(Math.random() * 10);
+            }
+
+            return phone;
+        }
+
+        // 更新导入进度
+        function updateImportProgress() {
+            const percent = Math.round((importStats.processed / importStats.total) * 100);
+
+            document.getElementById('importProgressBar').style.width = `${percent}%`;
+            document.getElementById('importProgressBar').setAttribute('aria-valuenow', percent);
+            document.getElementById('processedCount').textContent = importStats.processed;
+            document.getElementById('successCount').textContent = importStats.success;
+            document.getElementById('failCount').textContent = importStats.failed;
+        }
+
+        // 添加导入日志
+        function addImportLog(message, isError = false) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+
+            importStats.logs.push(logEntry);
+
+            const logElement = document.getElementById('importLogs');
+            const logLine = document.createElement('div');
+            logLine.className = isError ? 'text-danger' : '';
+            logLine.textContent = logEntry;
+
+            logElement.appendChild(logLine);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // 完成导入
+        function completeImport() {
+            isImporting = false;
+
+            // 更新日志
+            addImportLog(`导入完成。成功: ${importStats.success}, 失败: ${importStats.failed}`);
+
+            // 更新UI
+            document.getElementById('completeImportBtn').classList.remove('d-none');
+
+            // 如果全部成功
+            if (importStats.failed === 0) {
+                document.getElementById('importProgressBar').classList.remove('progress-bar-animated');
+                document.getElementById('importProgressBar').classList.add('bg-success');
+            } else {
+                document.getElementById('importProgressBar').classList.remove('progress-bar-animated');
+                document.getElementById('importProgressBar').classList.add('bg-warning');
+            }
+        }
+
+        // 复制导入日志
+        function copyImportLogs() {
+            const logText = importStats.logs.join('\n');
+
+            navigator.clipboard.writeText(logText).then(() => {
+                alert('日志已复制到剪贴板');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败: ' + err.message);
+            });
+        }
+
         // 加载所有配置
         function loadConfigurations() {
-            // 模拟API调用
-            fetch(`${API_BASE_URL}/domain`)
+            fetch(`${API_BASE_URL}/domain/phone-groups`)
                 .then(response => response.json())
                 .then(data => {
-                    renderConfigurationsTable(data);
+                    // 初始化全局配置数组
+                    allConfigurations = data;
+
+                    // 渲染服务器分组表格
+                    renderServerGroupTable(data);
                 })
                 .catch(error => {
                     console.error('Error loading configurations:', error);
-                    // 模拟数据用于演示
-                    const mockData = [
-                        {
-                            id: 1,
-                            domain: 'example.com',
-                            title: '示例网站',
-                            viewsPath: '/templates/default',
-                            status: 1,
-                            createTime: '2023-03-01 10:00:00'
-                        },
-                        {
-                            id: 2,
-                            domain: 'test.com',
-                            title: '测试网站',
-                            viewsPath: '/templates/test',
-                            status: 0,
-                            createTime: '2023-03-02 11:30:00'
-                        }
-                    ];
-                    renderConfigurationsTable(mockData);
+                    phoneGroupTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <div class="alert alert-danger">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    加载数据失败: ${error.message}
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadConfigurations()">
+                                    <i class="bi bi-arrow-clockwise me-1"></i>重试
+                                </button>
+                            </td>
+                        </tr>
+                    `;
                 });
         }
-        
-        // 渲染配置表格
-        function renderConfigurationsTable(configurations) {
-            configTableBody.innerHTML = '';
-            
+
+        // 按服务器编号分组配置数据
+        function groupConfigurationsByServer(configurations) {
+            const serverGroups = {};
+
             configurations.forEach(config => {
-                const row = document.createElement('tr');
+                const serverInfo = config.serverInfo || '未设置服务器';
+                const phone = config.contactPhone || '未设置';
+
+                if (!serverGroups[serverInfo]) {
+                    serverGroups[serverInfo] = {
+                        serverInfo: serverInfo,
+                        phoneGroups: {},
+                        totalDomainCount: 0,
+                        totalEnabledCount: 0,
+                        totalDisabledCount: 0,
+                        batchCount: 0
+                    };
+                }
+
+                if (!serverGroups[serverInfo].phoneGroups[phone]) {
+                    serverGroups[serverInfo].phoneGroups[phone] = {
+                        phone: phone,
+                        serverInfo: serverInfo,
+                        configs: [],
+                        domainCount: 0,
+                        enabledCount: 0,
+                        disabledCount: 0
+                    };
+                    serverGroups[serverInfo].batchCount++;
+                }
+
+                // 将单个配置添加到对应的批次组中
+                serverGroups[serverInfo].phoneGroups[phone].configs.push(config);
                 
-                const statusSwitch = `
-                    <div class="form-check form-switch">
-                        <input class="form-check-input status-switch" type="checkbox" 
-                            data-id="${config.id}" 
-                            ${config.status === 1 ? 'checked' : ''}>
-                    </div>`;
+                // 重新计算该批次的统计信息
+                const phoneGroup = serverGroups[serverInfo].phoneGroups[phone];
+                phoneGroup.domainCount = phoneGroup.configs.length;
+                phoneGroup.enabledCount = phoneGroup.configs.filter(c => c.status === 1).length;
+                phoneGroup.disabledCount = phoneGroup.configs.filter(c => c.status === 0).length;
+            });
+
+            // 重新计算服务器级别的统计信息
+            Object.values(serverGroups).forEach(serverGroup => {
+                serverGroup.totalDomainCount = 0;
+                serverGroup.totalEnabledCount = 0;
+                serverGroup.totalDisabledCount = 0;
                 
-                row.innerHTML = `
+                Object.values(serverGroup.phoneGroups).forEach(phoneGroup => {
+                    serverGroup.totalDomainCount += phoneGroup.domainCount;
+                    serverGroup.totalEnabledCount += phoneGroup.enabledCount;
+                    serverGroup.totalDisabledCount += phoneGroup.disabledCount;
+                });
+            });
+
+            // 转换为数组格式
+            return Object.values(serverGroups).map(serverGroup => ({
+                ...serverGroup,
+                phoneGroups: Object.values(serverGroup.phoneGroups)
+            }));
+        }
+
+        // 渲染服务器分组表格
+        function renderServerGroupTable(configurations) {
+            phoneGroupTableBody.innerHTML = '';
+
+            const serverGroups = groupConfigurationsByServer(configurations);
+
+            serverGroups.forEach(serverGroup => {
+                // 渲染服务器行
+                const serverRow = document.createElement('tr');
+                serverRow.className = 'server-group';
+                serverRow.dataset.serverInfo = serverGroup.serverInfo;
+
+                const statusBadge = `
+                    <span class="badge ${serverGroup.totalEnabledCount > 0 ? 'bg-success' : 'bg-danger'}">
+                        ${serverGroup.totalEnabledCount}/${serverGroup.totalDomainCount} 启用
+                    </span>`;
+
+                serverRow.innerHTML = `
                     <td>
                         <div class="form-check">
-                            <input class="form-check-input row-checkbox" type="checkbox" data-id="${config.id}">
+                            <input class="form-check-input server-checkbox" type="checkbox" data-server-info="${serverGroup.serverInfo}">
                         </div>
                     </td>
-                    <td>${config.domain}</td>
-                    <td>${config.title}</td>
-                    <td>${config.description || '-'}</td>
-                    <td>${config.keywords || '-'}</td>
-                    <td>${config.viewsPath || '-'}</td>
-                    <td>${statusSwitch}</td>
-                    <td>${config.createTime}</td>
-                    <td class="action-buttons">
-                        <button class="btn btn-sm btn-primary edit-btn" data-id="${config.id}">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-warning" onclick="showConfigModal('keyword', ${config.id}, '${config.domain}')">
-                            <i class="bi bi-tags"></i> 关键词
-                        </button>
-                        <button class="btn btn-sm btn-secondary" onclick="showConfigModal('comment', ${config.id}, '${config.domain}')">
-                            <i class="bi bi-chat-dots"></i> 评论规则
-                        </button>
-                        <button class="btn btn-sm btn-success" onclick="showConfigModal('article', ${config.id}, '${config.domain}')">
-                            <i class="bi bi-file-earmark-text"></i> 文章
-                        </button>
-                        <button class="btn btn-sm btn-danger delete-btn" data-id="${config.id}" data-domain="${config.domain}">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                    <td>
+                        <a href="javascript:void(0);" class="text-decoration-none text-dark toggle-server" data-server-info="${serverGroup.serverInfo}" data-loaded="false">
+                            <i class="bi bi-chevron-right me-2 toggle-icon"></i>
+                            <strong>${serverGroup.serverInfo}</strong>
+                        </a>
                     </td>
+                    <td><span class="badge bg-primary">${serverGroup.batchCount}</span></td>
+                    <td>${serverGroup.totalDomainCount}</td>
+                    <td>${statusBadge}</td>
                 `;
-                
-                configTableBody.appendChild(row);
-            });
-            
-            // 添加编辑按钮点击事件
-            document.querySelectorAll('.edit-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const id = this.getAttribute('data-id');
-                    editConfiguration(id);
+
+             phoneGroupTableBody.appendChild(serverRow);
+
+                // 添加隐藏的批次行容器
+                const batchRow = document.createElement('tr');
+                batchRow.className = 'server-batches d-none';
+                batchRow.dataset.serverInfo = serverGroup.serverInfo;
+
+                const batchCell = document.createElement('td');
+                batchCell.colSpan = 6;
+                batchCell.className = 'p-0';
+
+                // 创建批次子表格
+                let batchesHTML = `
+                    <div class="p-3 bg-light border-start border-5 border-info">
+                        <h6 class="text-muted mb-3">
+                            <i class="bi bi-server me-2"></i>
+                            服务器 "${serverGroup.serverInfo}" 下的批次列表
+                        </h6>
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th width="50">
+                                        <div class="form-check">
+                                            <input class="form-check-input batch-select-all" type="checkbox" data-server-info="${serverGroup.serverInfo}">
+                                        </div>
+                                    </th>
+                                    <th>批次号</th>
+                                    <th>域名数量</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                // 渲染每个批次
+                serverGroup.phoneGroups.forEach(phoneGroup => {
+                    const phoneStatusBadge = `
+                        <span class="badge ${phoneGroup.enabledCount > 0 ? 'bg-success' : 'bg-danger'}">
+                            ${phoneGroup.enabledCount}/${phoneGroup.domainCount} 启用
+                        </span>`;
+
+                    batchesHTML += `
+                        <tr class="phone-group" data-phone="${phoneGroup.phone}" data-server-info="${serverGroup.serverInfo}">
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input phone-checkbox" type="checkbox" 
+                                        data-phone="${phoneGroup.phone}" 
+                                        data-server-info="${serverGroup.serverInfo}">
+                                </div>
+                            </td>
+                            <td>
+                                <a href="javascript:void(0);" class="text-decoration-none text-dark toggle-phone" 
+                                    data-phone="${phoneGroup.phone}" 
+                                    data-server-info="${serverGroup.serverInfo}" 
+                                    data-loaded="false">
+                                    <i class="bi bi-chevron-right me-2 toggle-icon"></i>
+                                    ${phoneGroup.phone}
+                                </a>
+                            </td>
+                            <td>${phoneGroup.domainCount}</td>
+                            <td>${phoneStatusBadge}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input batch-status-switch" type="checkbox" 
+                                            data-phone="${phoneGroup.phone}"
+                                            ${phoneGroup.enabledCount === phoneGroup.domainCount ? 'checked' : ''}>
+                                    </div>
+                                    <button class="btn btn-outline-info batch-comment-btn" data-phone="${phoneGroup.phone}">
+                                        <i class="bi bi-chat-dots"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success batch-article-btn" data-phone="${phoneGroup.phone}">
+                                        <i class="bi bi-file-text"></i>
+                                    </button>
+                                    <button class="btn btn-outline-warning batch-keyword-btn" data-phone="${phoneGroup.phone}">
+                                        <i class="bi bi-key"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger batch-delete-btn" data-phone="${phoneGroup.phone}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- 域名详情行 -->
+                        <tr class="phone-details d-none" data-phone="${phoneGroup.phone}" data-server-info="${serverGroup.serverInfo}">
+                            <td colspan="5" class="p-0">
+                                <div class="p-3 bg-white border-start border-3 border-warning">
+                                    <div id="loading-${phoneGroup.phone}" class="text-center py-3 d-none">
+                                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <span>正在加载域名数据...</span>
+                                    </div>
+                                    <div id="content-${phoneGroup.phone}"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
                 });
+
+                batchesHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                batchCell.innerHTML = batchesHTML;
+                batchRow.appendChild(batchCell);
+                phoneGroupTableBody.appendChild(batchRow);
             });
-            
-            // 添加删除按钮点击事件
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const id = this.getAttribute('data-id');
-                    const domain = this.getAttribute('data-domain');
-                    showDeleteConfirmation(id, domain);
+
+            // 添加服务器组展开/折叠事件
+            document.querySelectorAll('.toggle-server').forEach(toggle => {
+                toggle.addEventListener('click', function () {
+                    const serverInfo = this.getAttribute('data-server-info');
+                    const batchRow = document.querySelector(`.server-batches[data-server-info="${serverInfo}"]`);
+                    const toggleIcon = this.querySelector('.toggle-icon');
+
+                    batchRow.classList.toggle('d-none');
+                    toggleIcon.classList.toggle('bi-chevron-right');
+                    toggleIcon.classList.toggle('bi-chevron-down');
                 });
             });
 
-            // 添加状态开关事件
-            document.querySelectorAll('.status-switch').forEach(switchEl => {
-                switchEl.addEventListener('change', function() {
-                    const id = this.getAttribute('data-id');
+            // 添加批次组展开/折叠事件
+            document.querySelectorAll('.toggle-phone').forEach(toggle => {
+                toggle.addEventListener('click', function () {
+                    const phone = this.getAttribute('data-phone');
+                    const serverInfo = this.getAttribute('data-server-info');
+                    const detailRow = document.querySelector(`.phone-details[data-phone="${phone}"][data-server-info="${serverInfo}"]`);
+                    const toggleIcon = this.querySelector('.toggle-icon');
+                    const isLoaded = this.getAttribute('data-loaded') === 'true';
+
+                    detailRow.classList.toggle('d-none');
+                    toggleIcon.classList.toggle('bi-chevron-right');
+                    toggleIcon.classList.toggle('bi-chevron-down');
+
+                    // 如果是展开且未加载数据，则加载数据
+                    if (!detailRow.classList.contains('d-none') && !isLoaded) {
+                        loadDomainsByPhone(phone);
+                        this.setAttribute('data-loaded', 'true');
+                    }
+                });
+            });
+
+            // 添加批量启用/禁用按钮事件
+            document.querySelectorAll('.batch-enable-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const phone = this.getAttribute('data-phone');
+                    batchUpdateStatusByPhone(phone, 1);
+                });
+            });
+
+            document.querySelectorAll('.batch-disable-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const phone = this.getAttribute('data-phone');
+                    batchUpdateStatusByPhone(phone, 0);
+                });
+            });
+
+            // 添加批量评论规则按钮事件
+            document.querySelectorAll('.batch-comment-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const phone = this.getAttribute('data-phone');
+                    showBatchConfigModal('comment', phone);
+                });
+            });
+
+            // 添加批量文章分配按钮事件
+            document.querySelectorAll('.batch-article-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const phone = this.getAttribute('data-phone');
+                    showBatchConfigModal('article', phone);
+                });
+            });
+
+            // 添加批量关键词按钮事件
+            document.querySelectorAll('.batch-keyword-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const phone = this.getAttribute('data-phone');
+                    showBatchConfigModal('keyword', phone);
+                });
+            });
+
+            // 添加批量状态开关事件
+            document.querySelectorAll('.batch-status-switch').forEach(switchEl => {
+                switchEl.addEventListener('change', function () {
+                    const phone = this.getAttribute('data-phone');
                     const newStatus = this.checked ? 1 : 0;
-                    updateStatus(id, newStatus);
+                    batchUpdateStatusByPhone(phone, newStatus);
                 });
             });
 
-            // 添加复选框相关事件
-            setupCheckboxEvents();
+            // 添加批量删除按钮事件
+            document.querySelectorAll('.batch-delete-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const phone = this.getAttribute('data-phone');
+                    batchDeleteByPhone(phone);
+                });
+            });
         }
-        
-        // 设置复选框相关事件
-        function setupCheckboxEvents() {
-            const selectAllCheckbox = document.getElementById('selectAll');
-            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
-            const batchOperations = document.getElementById('batchOperations');
 
-            // 全选/取消全选
-            selectAllCheckbox.addEventListener('change', function() {
-                rowCheckboxes.forEach(checkbox => {
-                    checkbox.checked = this.checked;
+        // 添加按手机号加载域名配置的函数
+        function loadDomainsByPhone(phone) {
+            // 显示加载指示器
+            const loadingElement = document.getElementById(`loading-${phone}`);
+            const contentElement = document.getElementById(`content-${phone}`);
+
+            if (loadingElement) loadingElement.classList.remove('d-none');
+            if (contentElement) contentElement.innerHTML = '';
+
+            // 调用API获取该手机号下的所有配置
+            fetch(`${API_BASE_URL}/domain/by-phone?phone=${encodeURIComponent(phone)}&domain=`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`获取数据失败: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 隐藏加载指示器
+                    if (loadingElement) loadingElement.classList.add('d-none');
+
+                    // 渲染子表格
+                    renderDomainSubTable(phone, data);
+
+                    // 更新本地缓存
+                    updateLocalConfigurations(phone, data);
+                })
+                .catch(error => {
+                    console.error('Error loading domains by phone:', error);
+
+                    // 隐藏加载指示器，显示错误信息
+                    if (loadingElement) loadingElement.classList.add('d-none');
+                    if (contentElement) {
+                        contentElement.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                加载数据失败: ${error.message}
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadDomainsByPhone('${phone}')">
+                                <i class="bi bi-arrow-clockwise me-1"></i>重试
+                            </button>
+                        `;
+                    }
                 });
-                updateBatchOperationsVisibility();
-            });
+        }
 
-            // 单个复选框变化
-            rowCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
+        // 渲染域名子表格
+        function renderDomainSubTable(phone, configs) {
+            const contentElement = document.getElementById(`content-${phone}`);
+            if (!contentElement) return;
+
+            const tableHTML = `
+                <table class="table table-sm table-bordered mb-0">
+                    <thead>
+                        <tr>
+                            <th>
+                                <div class="form-check">
+                                    <input class="form-check-input sub-select-all" type="checkbox" data-phone="${phone}">
+                                </div>
+                            </th>
+                            <th>域名</th>
+                            <th>标题</th>
+                            <th>描述</th>
+                            <th>关键词</th>
+                            <th>服务器编号</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>评论</th>
+                            <th>词</th>
+                            <th>文章</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${renderConfigurationRows(configs)}
+                    </tbody>
+                </table>
+            `;
+
+            contentElement.innerHTML = tableHTML;
+
+            // 为新渲染的内容添加事件监听器
+            setupSubTableEvents(phone);
+        }
+
+        // 设置子表格事件
+        function setupSubTableEvents(phone) {
+            // 添加组内全选复选框事件
+            const subSelectAll = document.querySelector(`.sub-select-all[data-phone="${phone}"]`);
+            if (subSelectAll) {
+                subSelectAll.addEventListener('change', function () {
+                    const isChecked = this.checked;
+
+                    // 选中/取消选中该组内所有域名
+                    document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]`)
+                        .forEach(cb => cb.checked = isChecked);
+
+                    // 更新组复选框状态
+                    const groupCheckbox = document.querySelector(`.group-checkbox[data-phone="${phone}"]`);
+                    if (groupCheckbox) groupCheckbox.checked = isChecked;
+
                     updateSelectAllCheckbox();
+                    updateBatchOperationsVisibility();
+                });
+            }
+
+            // 为单个复选框添加事件
+            document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]`).forEach(checkbox => {
+                checkbox.addEventListener('change', function () {
+                    // 更新组内全选复选框状态
+                    updateSubSelectAllCheckbox(phone);
+
+                    // 更新组复选框状态
+                    updateGroupCheckbox(phone);
+
+                    // 更新总全选复选框状态
+                    updateSelectAllCheckbox();
+
                     updateBatchOperationsVisibility();
                 });
             });
 
-            // 批量操作按钮事件
-            document.getElementById('batchEnableBtn').addEventListener('click', () => batchUpdateStatus(1));
-            document.getElementById('batchDisableBtn').addEventListener('click', () => batchUpdateStatus(0));
-            document.getElementById('batchDeleteBtn').addEventListener('click', batchDelete);
-        }
-
-        // 更新全选复选框状态
-        function updateSelectAllCheckbox() {
-            const selectAllCheckbox = document.getElementById('selectAll');
-            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
-            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
-            
-            selectAllCheckbox.checked = checkedCount === rowCheckboxes.length;
-            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
-        }
-
-        // 更新批量操作按钮的显示状态
-        function updateBatchOperationsVisibility() {
-            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
-            const batchOperations = document.getElementById('batchOperations');
-            batchOperations.style.display = checkedCount > 0 ? 'inline-flex' : 'none';
-        }
-
-        // 更新单个配置状态
-        function updateStatus(id, status) {
-            fetch(`${API_BASE_URL}/domain/${id}/status?status=${status}`, {
-                method: 'PUT'
-            })
-                .then(response => {
-                    if (response.ok) {
-                        // 可以添加成功提示
-                        console.log('状态更新成功');
-                    } else {
-                        throw new Error('状态更新失败');
+            // 为删除按钮添加事件
+            document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]`).forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                if (row) {
+                    const deleteBtn = row.querySelector('.delete-btn');
+                    if (deleteBtn) {
+                        deleteBtn.addEventListener('click', function () {
+                            const id = this.getAttribute('data-id');
+                            const domain = this.getAttribute('data-domain');
+                            showDeleteConfirmation(id, domain);
+                        });
                     }
-                })
-                .catch(error => {
-                    console.error('Error updating status:', error);
-                    alert('状态更新失败，请重试');
-                    // 恢复开关状态
-                    const switchEl = document.querySelector(`.status-switch[data-id="${id}"]`);
-                    if (switchEl) {
-                        switchEl.checked = status === 0;
+                }
+            });
+
+            // 添加状态开关事件
+            document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]`).forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                if (row) {
+                    const statusSwitch = row.querySelector('.status-switch');
+                    if (statusSwitch) {
+                        statusSwitch.addEventListener('change', function () {
+                            const id = this.getAttribute('data-id');
+                            const newStatus = this.checked ? 1 : 0;
+                            updateStatus(id, newStatus);
+                        });
                     }
-                });
+                }
+            });
         }
 
-        // 批量更新状态
-        function batchUpdateStatus(status) {
-            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+        // 更新本地配置缓存
+        function updateLocalConfigurations(phone, configs) {
+            // 移除当前手机号对应的配置
+            allConfigurations = allConfigurations.filter(config => (config.contactPhone || '未设置') !== phone);
+
+            // 添加新获取的配置
+            allConfigurations = allConfigurations.concat(configs);
+        }
+
+        // 修改批量更新状态函数，支持异步加载的情况
+        function batchUpdateStatusByPhone(phone, status) {
+            // 先尝试从本地获取该手机号的配置
+            let configsById = allConfigurations.filter(config => (config.contactPhone || '未设置') === phone)
+                .reduce((map, config) => {
+                    map[config.id] = config;
+                    return map;
+                }, {});
+
+            // 获取该手机号下所有已选中的配置ID
+            const selectedIds = Array.from(document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]:checked`))
                 .map(checkbox => checkbox.getAttribute('data-id'));
-            
-            if (selectedIds.length === 0) return;
 
-            Promise.all(selectedIds.map(id => 
+            // 如果没有选中的ID，则获取该手机号下所有配置ID
+            let configIds = selectedIds.length > 0 ? selectedIds : Object.keys(configsById);
+
+            if (configIds.length === 0) {
+                // 如果本地没有配置数据，需要先加载
+                const loadingMessage = selectedIds.length > 0 ?
+                    '正在获取选中的配置信息...' :
+                    `正在获取手机号 ${phone} 下的所有配置信息...`;
+
+                alert(loadingMessage);
+
+                // 加载数据后再处理
+                fetch(`${API_BASE_URL}/domain/by-phone?phone=${encodeURIComponent(phone)}&domain=`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const loadedConfigIds = data.map(config => config.id);
+                        if (loadedConfigIds.length === 0) {
+                            alert('未找到该手机号下的配置，无法进行批量操作');
+                            return;
+                        }
+
+                        // 更新本地缓存
+                        updateLocalConfigurations(phone, data);
+
+                        // 执行批量更新
+                        executeBatchUpdate(loadedConfigIds, status, phone);
+                    })
+                    .catch(error => {
+                        console.error('Error loading domains for batch update:', error);
+                        alert('获取配置信息失败，无法进行批量操作');
+                    });
+                return;
+            }
+
+            // 执行批量更新
+            executeBatchUpdate(configIds, status, phone);
+        }
+
+        // 执行批量更新
+        function executeBatchUpdate(configIds, status, phone) {
+            if (configIds.length === 0) return;
+
+            if (!confirm(`确定要${status === 1 ? '启用' : '禁用'}该手机号(${phone})下的${configIds.length}个域名配置吗？`)) {
+                return;
+            }
+
+            Promise.all(configIds.map(id =>
                 fetch(`${API_BASE_URL}/domain/${id}/status?status=${status}`, {
                     method: 'PUT'
                 })
             ))
                 .then(responses => {
                     if (responses.every(response => response.ok)) {
-                        loadConfigurations();
+                        // 更新已选中的开关状态而不是重新加载整个表格
+                        document.querySelectorAll(`.status-switch[data-id]`).forEach(switchEl => {
+                            const id = switchEl.getAttribute('data-id');
+                            if (configIds.includes(id)) {
+                                switchEl.checked = status === 1;
+
+                                // 更新本地数据
+                                const configIndex = allConfigurations.findIndex(c => c.id == id);
+                                if (configIndex >= 0) {
+                                    allConfigurations[configIndex].status = status;
+                                }
+                            }
+                        });
+
+                        // 更新手机号组的状态标识
+                        updatePhoneGroupStatus(phone);
+
                         alert(`批量${status === 1 ? '启用' : '禁用'}成功！`);
                     } else {
                         throw new Error('部分更新失败');
@@ -739,892 +1539,900 @@
                 .catch(error => {
                     console.error('Error batch updating status:', error);
                     alert('批量更新状态失败，请重试');
-                    loadConfigurations();
+
+                    // 如果出错，重新加载该手机号下的数据
+                    if (document.querySelector(`.phone-details[data-phone="${phone}"]:not(.d-none)`)) {
+                        loadDomainsByPhone(phone);
+                    }
                 });
         }
 
-        // 批量删除
-        function batchDelete() {
+        // 更新手机号组的状态标识
+        function updatePhoneGroupStatus(phone) {
+            const configs = allConfigurations.filter(config => (config.contactPhone || '未设置') === phone);
+            const activeCount = configs.filter(config => config.status === 1).length;
+            const totalCount = configs.length;
+
+            const statusBadge = document.querySelector(`.phone-group[data-phone="${phone}"] td:nth-child(4) .badge`);
+            if (statusBadge) {
+                statusBadge.className = `badge ${activeCount > 0 ? 'bg-success' : 'bg-danger'}`;
+                statusBadge.textContent = `${activeCount}/${totalCount} 启用`;
+            }
+        }
+
+        // 渲染配置行
+        function renderConfigurationRows(configs) {
+            return configs.map(config => {
+                const statusSwitch = `
+                    <div class="form-check form-switch">
+                        <input class="form-check-input status-switch" type="checkbox" 
+                            data-id="${config.id}" 
+                            ${config.status === 1 ? 'checked' : ''}>
+                    </div>`;
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="form-check">
+                                <input class="form-check-input row-checkbox" type="checkbox" 
+                                    data-id="${config.id}" 
+                                    data-phone="${config.contactPhone || '未设置'}">
+                            </div>
+                        </td>
+                        <td><a href="https://${config.domain}" target="_blank">${config.domain}</a></td>
+                        <td><div title="${config.title}" style="cursor:help;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" onmouseover="showTooltip(event, this.title)" onmouseout="hideTooltip()">${config.title}</div></td>
+                        <td><div title="${config.description || '-'}" style="cursor:help;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" onmouseover="showTooltip(event, this.title)" onmouseout="hideTooltip()">${config.description || '-'}</div></td>
+                        <td><div title="${config.keywords || '-'}" style="cursor:help;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" onmouseover="showTooltip(event, this.title)" onmouseout="hideTooltip()">${config.keywords || '-'}</div></td>
+                        <td><div title="${config.serverInfo || '-'}" style="cursor:help;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px;" onmouseover="showTooltip(event, this.title)" onmouseout="hideTooltip()">${config.serverInfo || '-'}</div></td>
+                        <td>${statusSwitch}</td>
+                        <td style="cursor:help;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px;" onmouseover="showTooltip(event, this.title)" onmouseout="hideTooltip()" title="${config.createTime}">${config.createTime.substring(5, 7)}月${config.createTime.substring(8, 10)}日</td>
+                        <td class="action-buttons">
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-info" 
+                                    data-bs-toggle="tooltip" 
+                                    title="${config.commentRuleIds ? config.commentRuleIds.join(',') : '无评论规则'}" 
+                                    onmouseover="showTooltip(event, this.title)" 
+                                    onmouseout="hideTooltip()" onclick="showBatchConfigModal('comment', '${config.contactPhone}', '${config.domain}')">
+                                    <i class="bi bi-chat-dots"></i> ${config.commentRuleIds ? (config.commentRuleIds.length > 3 ? config.commentRuleIds.slice(0, 3).join(',') + '...' : config.commentRuleIds.join(',')) : '-'}
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-warning" 
+                                    data-bs-toggle="tooltip" 
+                                    title="${config.rewriteRuleIds ? config.rewriteRuleIds.join(',') : '无改写规则'}" 
+                                    onmouseover="showTooltip(event, this.title)" 
+                                    onmouseout="hideTooltip()" onclick="showBatchConfigModal('keyword', '${config.contactPhone}', '${config.domain}')">
+                                    <i class="bi bi-pencil"></i> ${config.rewriteRuleIds ? (config.rewriteRuleIds.length > 3 ? config.rewriteRuleIds.slice(0, 3).join(',') + '...' : config.rewriteRuleIds.join(',')) : '-'}
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-success" 
+                                    data-bs-toggle="tooltip" 
+                                    title="${config.articleRuleIds ? config.articleRuleIds.join(',') : '无文章规则'}" 
+                                    onmouseover="showTooltip(event, this.title)" 
+                                    onmouseout="hideTooltip()" onclick="showBatchConfigModal('article', '${config.contactPhone}', '${config.domain}')">
+                                    <i class="bi bi-file-text"></i> ${config.articleRuleIds ? (config.articleRuleIds.length > 3 ? config.articleRuleIds.slice(0, 3).join(',') + '...' : config.articleRuleIds.join(',')) : '-'}
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 设置复选框相关事件
+        function setupCheckboxEvents() {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+            const batchOperations = document.getElementById('batchOperations');
+
+            // 全选/取消全选
+            selectAllCheckbox.addEventListener('change', function () {
+                const isChecked = this.checked;
+
+                // 选中/取消选中所有组复选框
+                document.querySelectorAll('.group-checkbox').forEach(cb => cb.checked = isChecked);
+
+                // 选中/取消选中所有子表全选复选框
+                document.querySelectorAll('.sub-select-all').forEach(cb => cb.checked = isChecked);
+
+                // 选中/取消选中所有行复选框
+                rowCheckboxes.forEach(checkbox => checkbox.checked = isChecked);
+
+                updateBatchOperationsVisibility();
+            });
+
+            // 单个复选框变化
+            rowCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function () {
+                    const phone = this.getAttribute('data-phone');
+
+                    // 更新组内全选复选框状态
+                    updateSubSelectAllCheckbox(phone);
+
+                    // 更新组复选框状态
+                    updateGroupCheckbox(phone);
+
+                    // 更新总全选复选框状态
+                    updateSelectAllCheckbox();
+
+                    updateBatchOperationsVisibility();
+                });
+            });
+
+            // 为删除按钮添加事件
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const id = this.getAttribute('data-id');
+                    const domain = this.getAttribute('data-domain');
+                    showDeleteConfirmation(id, domain);
+                });
+            });
+
+            // 添加状态开关事件
+            document.querySelectorAll('.status-switch').forEach(switchEl => {
+                switchEl.addEventListener('change', function () {
+                    const id = this.getAttribute('data-id');
+                    const newStatus = this.checked ? 1 : 0;
+                    updateStatus(id, newStatus);
+                });
+            });
+        }
+
+        // 更新组内全选复选框状态
+        function updateSubSelectAllCheckbox(phone) {
+            const subSelectAll = document.querySelector(`.sub-select-all[data-phone="${phone}"]`);
+            if (!subSelectAll) return;
+
+            const groupCheckboxes = document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]`);
+            const checkedCount = document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]:checked`).length;
+
+            subSelectAll.checked = checkedCount === groupCheckboxes.length;
+            subSelectAll.indeterminate = checkedCount > 0 && checkedCount < groupCheckboxes.length;
+        }
+
+        // 更新组复选框状态
+        function updateGroupCheckbox(phone) {
+            const groupCheckbox = document.querySelector(`.group-checkbox[data-phone="${phone}"]`);
+            if (!groupCheckbox) return;
+
+            const groupCheckboxes = document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]`);
+            const checkedCount = document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]:checked`).length;
+
+            groupCheckbox.checked = checkedCount === groupCheckboxes.length;
+            groupCheckbox.indeterminate = checkedCount > 0 && checkedCount < groupCheckboxes.length;
+        }
+
+        // 更新全选复选框状态
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+
+            selectAllCheckbox.checked = checkedCount === rowCheckboxes.length && rowCheckboxes.length > 0;
+            selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
+        }
+
+        // 更新批量操作按钮的显示状态
+        function updateBatchOperationsVisibility() {
+            const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
+            const batchOperations = document.getElementById('batchOperations');
+            const selectedCount = document.getElementById('selectedCount');
+            
+            if (batchOperations) {
+                batchOperations.style.display = checkedCount > 0 ? 'block' : 'none';
+            }
+            
+            if (selectedCount) {
+                selectedCount.textContent = checkedCount;
+            }
+        }
+
+        // 批量更新选中项目的状态
+        function batchUpdateSelectedStatus(status) {
             const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
                 .map(checkbox => checkbox.getAttribute('data-id'));
-            
+
+            if (selectedIds.length === 0) {
+                alert('请选择要操作的配置');
+                return;
+            }
+
+            if (!confirm(`确定要${status === 1 ? '启用' : '禁用'}选中的 ${selectedIds.length} 个域名配置吗？`)) {
+                return;
+            }
+
+            // 显示进度
+            const actionText = status === 1 ? '启用' : '禁用';
+            const progressAlert = document.createElement('div');
+            progressAlert.className = 'alert alert-info';
+            progressAlert.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">处理中...</span>
+                    </div>
+                    正在${actionText}选中的配置...
+                </div>
+            `;
+            document.querySelector('.card-body').insertBefore(progressAlert, document.getElementById('batchOperations'));
+
+            Promise.all(selectedIds.map(id =>
+                fetch(`${API_BASE_URL}/domain/${id}/status?status=${status}`, {
+                    method: 'PUT'
+                })
+            ))
+                .then(responses => {
+                    progressAlert.remove();
+                    
+                    if (responses.every(response => response.ok)) {
+                        // 更新界面中的状态开关
+                        selectedIds.forEach(id => {
+                            const statusSwitch = document.querySelector(`.status-switch[data-id="${id}"]`);
+                            if (statusSwitch) {
+                                statusSwitch.checked = status === 1;
+                            }
+
+                            // 更新本地数据
+                            const configIndex = allConfigurations.findIndex(c => c.id == id);
+                            if (configIndex >= 0) {
+                                allConfigurations[configIndex].status = status;
+                            }
+                        });
+
+                        // 更新各个手机号组的状态标识
+                        const affectedPhones = new Set();
+                        selectedIds.forEach(id => {
+                            const config = allConfigurations.find(c => c.id == id);
+                            if (config) {
+                                affectedPhones.add(config.contactPhone || '未设置');
+                            }
+                        });
+                        
+                        affectedPhones.forEach(phone => updatePhoneGroupStatus(phone));
+
+                        alert(`批量${actionText}成功！共${actionText}了 ${selectedIds.length} 个配置。`);
+                        
+                        // 清除选中状态
+                        document.querySelectorAll('.row-checkbox:checked').forEach(cb => cb.checked = false);
+                        document.getElementById('selectAll').checked = false;
+                        updateBatchOperationsVisibility();
+                    } else {
+                        throw new Error('部分更新失败');
+                    }
+                })
+                .catch(error => {
+                    progressAlert.remove();
+                    console.error('Error batch updating status:', error);
+                    alert(`批量${actionText}失败，请重试`);
+                });
+        }
+
+        // 批量删除选中的配置
+        function batchDeleteSelected() {
+            const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+            const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
+
             if (selectedIds.length === 0) {
                 alert('请选择要删除的配置');
                 return;
             }
 
-            if (!confirm(`确定要删除选中的 ${selectedIds.length} 个配置吗？此操作不可恢复。`)) {
-                return;
-            }
-
-            // 修改为使用 POST 请求，并添加正确的请求头和错误处理
-            fetch(`${API_BASE_URL}/domain/batch-delete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(selectedIds)
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+            // 按手机号分组选中的配置
+            const configsByPhone = {};
+            selectedCheckboxes.forEach(checkbox => {
+                const id = checkbox.getAttribute('data-id');
+                const phone = checkbox.getAttribute('data-phone');
+                
+                if (!configsByPhone[phone]) {
+                    configsByPhone[phone] = [];
                 }
-                return response.json();
-            })
-            .then(result => {
-                if (result.success) {
-                    loadConfigurations();
-                    alert('批量删除成功！');
-                } else {
-                    throw new Error(result.message || '批量删除失败');
-                }
-            })
-            .catch(error => {
-                console.error('批量删除错误:', error);
-                alert('批量删除失败：' + error.message);
+                configsByPhone[phone].push(id);
             });
+
+            // 获取要删除的域名列表
+            const domainsToDelete = selectedIds.map(id => {
+                const config = allConfigurations.find(c => c.id == id);
+                return config ? config.domain : `ID:${id}`;
+            });
+
+            // 显示批量删除确认模态框
+            showGlobalBatchDeleteConfirmation(selectedIds, configsByPhone, domainsToDelete);
         }
-        
-        // 编辑配置
-        function editConfiguration(id) {
-            currentConfigId = id;
-            document.getElementById('modalTitle').textContent = '编辑域名配置';
+
+        // 显示全局批量删除确认模态框
+        function showGlobalBatchDeleteConfirmation(configIds, configsByPhone, domainsToDelete) {
+            // 更新模态框内容
+            const phoneList = Object.keys(configsByPhone).map(phone => 
+                `${phone} (${configsByPhone[phone].length}个)`
+            ).join(', ');
             
-            // 模拟API调用
-            fetch(`${API_BASE_URL}/domain/${id}`)
-                .then(response => response.json())
-                .then(config => {
-                    fillConfigForm(config);
-                })
-                .catch(error => {
-                    console.error('Error loading configuration details:', error);
-                    // 模拟数据用于演示
-                    const mockConfig = {
-                        id: id,
-                        domain: 'example.com',
-                        title: '示例网站',
-                        description: '这是一个示例网站，用于演示域名配置功能。',
-                        keywords: '示例,网站,演示,配置',
-                        logoUrl: 'https://example.com/logo.png',
-                        faviconUrl: 'https://example.com/favicon.ico',
-                        copyright: '© 2023 Example Inc. All rights reserved.',
-                        icp: '京ICP备12345678号',
-                        viewsPath: '/templates/default',
-                        contactPhone: '010-12345678',
-                        contactEmail: 'contact@example.com',
-                        contactAddress: '北京市海淀区中关村',
-                        status: 1,
-                        dailyAddNewsCount: 0,
-                        friendlyLinkList: [
-                            {
-                                name: '百度',
-                                url: 'https://www.baidu.com',
-                                description: '中国最大的搜索引擎',
-                                sort: 0
-                            },
-                            {
-                                name: '谷歌',
-                                url: 'https://www.google.com',
-                                description: '全球最大的搜索引擎',
-                                sort: 1
-                            }
-                        ]
-                    };
-                    fillConfigForm(mockConfig);
+            document.getElementById('batchDeletePhone').textContent = phoneList;
+            
+            // 更新删除类型说明
+            document.getElementById('batchDeleteTypeInfo').innerHTML = 
+                `<strong>删除类型：</strong><span class="badge bg-warning">跨批次选中</span><br>
+                 <strong>删除数量：</strong><span class="fw-bold text-danger">${configIds.length}</span> 个域名配置<br>
+                 <strong>涉及批次：</strong><span class="text-muted">${Object.keys(configsByPhone).length}个</span>`;
+            
+            // 生成域名列表HTML，按手机号分组显示
+            let domainListHtml = '';
+            Object.keys(configsByPhone).forEach(phone => {
+                const phoneConfigIds = configsByPhone[phone];
+                const phoneDomains = phoneConfigIds.map(id => {
+                    const config = allConfigurations.find(c => c.id == id);
+                    return config ? config.domain : `ID:${id}`;
                 });
+                
+                domainListHtml += `
+                    <div class="mb-2">
+                        <div class="fw-bold text-primary mb-1">批次 ${phone}：</div>
+                        ${phoneDomains.map((domain, index) => 
+                            `<div class="ms-3 mb-1 bg-warning bg-opacity-25 p-1 rounded">
+                                <span class="badge bg-warning me-2">${index + 1}</span>
+                                ${domain}
+                                <i class="bi bi-check-circle-fill text-success ms-2" title="已选中"></i>
+                            </div>`
+                        ).join('')}
+                    </div>
+                `;
+            });
+            document.getElementById('batchDeleteDomainList').innerHTML = domainListHtml;
+
+            // 设置确认按钮的数据属性
+            const confirmBtn = document.getElementById('confirmBatchDeleteBtn');
+            confirmBtn.setAttribute('data-phone', 'GLOBAL'); // 标记为全局删除
+            confirmBtn.setAttribute('data-config-ids', configIds.join(','));
             
-            configModal.show();
+            // 更新确认按钮文本
+            confirmBtn.innerHTML = `<i class="bi bi-trash"></i> 确认删除选中项`;
+
+            // 显示模态框
+            batchDeleteModal.show();
         }
-        
-        // 填充配置表单
-        function fillConfigForm(config) {
-            document.getElementById('configId').value = config.id;
-            document.getElementById('domain').value = config.domain;
-            document.getElementById('title').value = config.title;
-            document.getElementById('description').value = config.description || '';
-            document.getElementById('keywords').value = config.keywords || '';
-            document.getElementById('logoUrl').value = config.logoUrl || '';
-            document.getElementById('faviconUrl').value = config.faviconUrl || '';
-            document.getElementById('copyright').value = config.copyright || '';
-            document.getElementById('icp').value = config.icp || '';
-            document.getElementById('viewsPath').value = config.viewsPath || '';
-            document.getElementById('contactPhone').value = config.contactPhone || '';
-            document.getElementById('contactEmail').value = config.contactEmail || '';
-            document.getElementById('contactAddress').value = config.contactAddress || '';
-            document.getElementById('status').value = config.status;
-            document.getElementById('dailyAddNewsCount').value = config.dailyAddNewsCount || 0;
-            
-            // 清空友情链接容器
-            const linksContainer = document.getElementById('friendlyLinksContainer');
-            linksContainer.innerHTML = '';
-            
-            // 添加友情链接
-            if (config.friendlyLinkList && config.friendlyLinkList.length > 0) {
-                config.friendlyLinkList.forEach(link => {
-                    addFriendlyLinkField(link);
-                });
-            }
-            
-            // 更新预览
-            updatePreview();
-        }
-        
-        // 重置表单
-        function resetForm() {
-            currentConfigId = null;
-            document.getElementById('configForm').reset();
-            document.getElementById('configId').value = '';
-            document.getElementById('friendlyLinksContainer').innerHTML = '';
-            updatePreview();
-        }
-        
-        // 保存配置
-        function saveConfiguration() {
-            const configId = document.getElementById('configId').value;
-            const isNew = !configId;
-            
-            // 检查必填字段
-            const domain = document.getElementById('domain').value;
-            const title = document.getElementById('title').value;
-            
-            if (!domain || !title) {
-                alert('请填写必填字段：域名和网站标题');
-                return;
-            }
-            
-            // 收集表单数据，使用默认值补充未填写的字段
-            const formData = {
-                domain: domain,
-                title: title,
-                description: document.getElementById('description').value || defaultTemplate.description,
-                keywords: document.getElementById('keywords').value || defaultTemplate.keywords,
-                logoUrl: document.getElementById('logoUrl').value || defaultTemplate.logoUrl,
-                faviconUrl: document.getElementById('faviconUrl').value || defaultTemplate.faviconUrl,
-                copyright: document.getElementById('copyright').value || defaultTemplate.copyright,
-                icp: document.getElementById('icp').value || defaultTemplate.icp,
-                viewsPath: document.getElementById('viewsPath').value || defaultTemplate.viewsPath,
-                contactPhone: document.getElementById('contactPhone').value || defaultTemplate.contactPhone,
-                contactEmail: document.getElementById('contactEmail').value || defaultTemplate.contactEmail,
-                contactAddress: document.getElementById('contactAddress').value || defaultTemplate.contactAddress,
-                status: parseInt(document.getElementById('status').value),
-                dailyAddNewsCount: parseInt(document.getElementById('dailyAddNewsCount').value) || 0,
-                friendlyLinkList: collectFriendlyLinks().length > 0 ? collectFriendlyLinks() : defaultTemplate.friendlyLinkList
-            };
-            
-            if (!isNew) {
-                formData.id = parseInt(configId);
-            }
-            
-            // 模拟API调用
-            const url = isNew ? `${API_BASE_URL}/domain` : `${API_BASE_URL}/domain/${configId}`;
-            const method = isNew ? 'POST' : 'PUT';
-            
-            fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    configModal.hide();
-                    loadConfigurations();
-                    alert(isNew ? '配置添加成功！' : '配置更新成功！');
-                })
-                .catch(error => {
-                    console.error('Error saving configuration:', error);
-                    // 模拟成功
-                    configModal.hide();
-                    loadConfigurations();
-                    alert(isNew ? '配置添加成功！' : '配置更新成功！');
-                });
-        }
-        
+
         // 显示删除确认
         function showDeleteConfirmation(id, domain) {
             currentConfigId = id;
             document.getElementById('deleteConfigDomain').textContent = domain;
             deleteModal.show();
         }
-        
+
         // 删除配置
         function deleteConfiguration() {
-            // 模拟API调用
             fetch(`${API_BASE_URL}/domain/${currentConfigId}`, {
                 method: 'DELETE'
             })
                 .then(response => {
-                    deleteModal.hide();
-                    loadConfigurations();
-                    alert('配置删除成功！');
+                    if (response.ok) {
+                        deleteModal.hide();
+                        loadConfigurations();
+                        alert('配置删除成功！');
+                    } else {
+                        throw new Error('删除失败');
+                    }
                 })
                 .catch(error => {
                     console.error('Error deleting configuration:', error);
-                    // 模拟成功
-                    deleteModal.hide();
-                    loadConfigurations();
-                    alert('配置删除成功！');
+                    alert('配置删除失败，请重试');
                 });
         }
-        
-        // 批量导入配置
-        function importConfigurations() {
-            const importData = document.getElementById('importData').value;
-            const overwriteExisting = document.getElementById('overwriteExisting').checked;
-            
-            try {
-                let configurations = JSON.parse(importData);
-                
-                // 如果是单个对象，转换为数组
-                if (!Array.isArray(configurations)) {
-                    configurations = [configurations];
-                }
-                
-                // 模拟API调用
-                fetch(`${API_BASE_URL}/domain/batch-import?overwrite=${overwriteExisting}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(configurations)
-                })
+
+        // 显示批量配置模态框
+        function showBatchConfigModal(type, phone, domain) {
+            const configTypes = {
+                'keyword': '关键词',
+                'comment': '评论规则',
+                'article': '文章'
+            };
+
+            // 获取该手机号下所有域名ID
+            let domainIds = "";
+            if (domain) {
+                // 获取该域名ID
+                const domainId = allConfigurations
+                    .find(config => config.domain === domain)
+                    .id;
+                domainIds = domainId;
+            } else {
+                domainIds = allConfigurations
+                    .filter(config => (config.contactPhone || '未设置') === phone)
+                    .map(config => config.id);
+            }
+            if (domainIds.length === 0) {
+                // 如果本地没有该手机号的配置数据，需要先加载
+                alert(`正在获取手机号 ${phone} 下的所有配置信息...`);
+                fetch(`${API_BASE_URL}/domain/by-phone?phone=${encodeURIComponent(phone)}&domain=${domain}`)
                     .then(response => response.json())
                     .then(data => {
-                        importModal.hide();
-                        loadConfigurations();
-                        alert(`成功导入 ${configurations.length} 条配置！`);
+                        if (data.length === 0) {
+                            alert('未找到该手机号下的配置，无法进行批量操作');
+                            return;
+                        }
+                        // 更新本地缓存
+                        updateLocalConfigurations(phone, data);
+                        // 获取域名列表
+                        const domains = data.map(c => c.domain).join(', ');
+                        const ids = data.map(c => c.id);
+                        // 确认操作
+                        confirmBatchConfig(type, phone, ids, domains);
                     })
                     .catch(error => {
-                        console.error('Error importing configurations:', error);
-                        // 模拟成功
-                        importModal.hide();
-                        loadConfigurations();
-                        alert(`成功导入 ${configurations.length} 条配置！`);
+                        console.error(`Error loading domains for batch ${type}:`, error);
+                        alert('获取配置信息失败，无法进行批量操作');
                     });
-            } catch (error) {
-                alert('导入数据格式错误，请检查JSON格式是否正确');
-                console.error('Error parsing import data:', error);
-            }
-        }
-        
-        // 添加友情链接字段
-        function addFriendlyLinkField(link = null) {
-            const container = document.getElementById('friendlyLinksContainer');
-            const linkId = Date.now();
-            
-            const linkItem = document.createElement('div');
-            linkItem.className = 'friendly-link-item';
-            linkItem.dataset.id = linkId;
-            
-            linkItem.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label class="form-label">名称</label>
-                            <input type="text" class="form-control link-name" value="${link ? link.name : ''}">
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label class="form-label">URL</label>
-                            <input type="text" class="form-control link-url" value="${link ? link.url : ''}">
-                        </div>
-                    </div>
-                </div>
-                <div class="row mt-2">
-                    <div class="col-md-8">
-                        <div class="form-group">
-                            <label class="form-label">描述</label>
-                            <input type="text" class="form-control link-description" value="${link ? link.description : ''}">
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label class="form-label">排序</label>
-                            <input type="number" class="form-control link-sort" value="${link ? link.sort : 0}" min="0">
-                        </div>
-                    </div>
-                </div>
-                <span class="remove-link" data-id="${linkId}"><i class="bi bi-x-circle-fill"></i></span>
-            `;
-            
-            container.appendChild(linkItem);
-            
-            // 添加删除链接事件
-            linkItem.querySelector('.remove-link').addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
-                document.querySelector(`.friendly-link-item[data-id="${id}"]`).remove();
-                updatePreview();
-            });
-            
-            // 添加实时预览
-            linkItem.querySelectorAll('input').forEach(input => {
-                input.addEventListener('input', updatePreview);
-            });
-            
-            updatePreview();
-        }
-        
-        // 收集友情链接数据
-        function collectFriendlyLinks() {
-            const links = [];
-            const linkItems = document.querySelectorAll('.friendly-link-item');
-            
-            linkItems.forEach(item => {
-                const name = item.querySelector('.link-name').value;
-                const url = item.querySelector('.link-url').value;
-                
-                if (name && url) {
-                    links.push({
-                        name: name,
-                        url: url,
-                        description: item.querySelector('.link-description').value,
-                        sort: parseInt(item.querySelector('.link-sort').value) || 0
-                    });
-                }
-            });
-            
-            return links;
-        }
-        
-        // 更新预览
-        function updatePreview() {
-            document.getElementById('previewTitle').textContent = document.getElementById('title').value || '网站标题';
-            document.getElementById('previewDescription').textContent = document.getElementById('description').value || '网站描述';
-            document.getElementById('previewKeywords').textContent = document.getElementById('keywords').value || '关键词1, 关键词2, 关键词3';
-            
-            // 更新友情链接预览
-            const previewLinks = document.getElementById('previewLinks');
-            previewLinks.innerHTML = '';
-            
-            const links = collectFriendlyLinks();
-            links.forEach(link => {
-                const linkElement = document.createElement('a');
-                linkElement.href = link.url;
-                linkElement.textContent = link.name;
-                linkElement.title = link.description;
-                previewLinks.appendChild(linkElement);
-            });
-        }
-        
-        // 下载模板
-        function downloadTemplate() {
-            // 创建下载格式选择对话框
-            const formatOptions = document.createElement('div');
-            formatOptions.className = 'dropdown-menu p-3';
-            formatOptions.style = 'position: absolute; display: block; min-width: 250px;';
-            formatOptions.innerHTML = `
-                <h6 class="dropdown-header">选择下载格式</h6>
-                <button class="dropdown-item" data-format="json">JSON格式</button>
-                <button class="dropdown-item" data-format="txt">TXT格式</button>
-                <div class="dropdown-divider"></div>
-                <small class="text-muted p-2">注意: JSON格式是首选，支持所有功能。</small>
-            `;
-            
-            // 显示格式选择对话框
-            document.body.appendChild(formatOptions);
-            const rect = document.getElementById('downloadTemplateBtn').getBoundingClientRect();
-            formatOptions.style.top = `${rect.bottom}px`;
-            formatOptions.style.left = `${rect.left}px`;
-            
-            // 添加点击事件
-            formatOptions.querySelectorAll('.dropdown-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    const format = this.getAttribute('data-format');
-                    downloadTemplateWithFormat(format);
-                    document.body.removeChild(formatOptions);
-                });
-            });
-            
-            // 点击外部关闭对话框
-            document.addEventListener('click', function closeDropdown(e) {
-                if (!formatOptions.contains(e.target) && e.target.id !== 'downloadTemplateBtn') {
-                    document.body.removeChild(formatOptions);
-                    document.removeEventListener('click', closeDropdown);
-                }
-            });
-        }
-        
-        // 根据格式下载模板
-        function downloadTemplateWithFormat(format) {
-            let content, fileName, mimeType;
-            
-            switch (format) {
-                case 'json':
-                    content = JSON.stringify(defaultTemplate, null, 2);
-                    fileName = 'domain_template.json';
-                    mimeType = 'application/json';
-                    break;
-                case 'txt':
-                    // 简单文本格式，一行一个字段
-                    content = [
-                        `domain=${defaultTemplate.domain}`,
-                        `title=${defaultTemplate.title}`,
-                        `description=${defaultTemplate.description}`,
-                        `keywords=${defaultTemplate.keywords}`,
-                        `logoUrl=${defaultTemplate.logoUrl}`,
-                        `faviconUrl=${defaultTemplate.faviconUrl}`,
-                        `copyright=${defaultTemplate.copyright}`,
-                        `icp=${defaultTemplate.icp}`,
-                        `viewsPath=${defaultTemplate.viewsPath}`,
-                        `contactPhone=${defaultTemplate.contactPhone}`,
-                        `contactEmail=${defaultTemplate.contactEmail}`,
-                        `contactAddress=${defaultTemplate.contactAddress}`,
-                        `status=${defaultTemplate.status}`,
-                        `# 友情链接格式: name=链接名称,url=链接地址,description=描述,sort=排序`,
-                        ...defaultTemplate.friendlyLinkList.map(link => 
-                            `link=name=${link.name},url=${link.url},description=${link.description},sort=${link.sort}`
-                        )
-                    ].join('\n');
-                    fileName = 'domain_template.txt';
-                    mimeType = 'text/plain';
-                    break;
-                default:
-                    return;
-            }
-            
-            const blob = new Blob([content], { type: mimeType });
-            const url = URL.createObjectURL(blob);
-            
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-        
-        // 上传模板
-        function uploadTemplate() {
-            const fileInput = document.getElementById('templateFile');
-            const overwriteExisting = document.getElementById('templateOverwriteExisting').checked;
-            
-            if (fileInput.files.length === 0) {
-                alert('请选择模板文件');
                 return;
             }
-            
-            const file = fileInput.files[0];
-            const fileExtension = file.name.split('.').pop().toLowerCase();
-            
-            // 处理Excel文件需要通过上传到服务器进行解析
-            if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('overwrite', overwriteExisting);
-                
-                // 显示加载提示
-                const loadingToast = showLoading('正在解析Excel文件，请稍候...');
-                
-                fetch(`${API_BASE_URL}/domain/parse-excel`, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`上传失败: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    loadingToast.hide();
-                    if (data.code === 200) {
-                        uploadTemplateModal.hide();
-                        loadConfigurations();
-                        showSuccess(`成功导入 ${data.importedCount} 条配置！`);
-                    } else {
-                        throw new Error(data.message || '导入失败');
-                    }
-                })
-                .catch(error => {
-                    loadingToast.hide();
-                    console.error('Error uploading Excel template:', error);
-                    showError('Excel文件解析失败: ' + error.message);
-                });
-            } else {
-                // 原有的JSON和TXT文件处理逻辑
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    try {
-                        const fileContent = e.target.result;
-                        let configData;
-                        
-                        switch (fileExtension) {
-                            case 'json':
-                                configData = JSON.parse(fileContent);
-                                break;
-                            case 'txt':
-                                configData = parseTxtFormat(fileContent);
-                                break;
-                            default:
-                                throw new Error('不支持的文件格式');
-                        }
-                        
-                        // 将解析后的数据直接传给导入接口
-                        importParsedTemplate(configData, overwriteExisting);
-                    } catch (error) {
-                        alert('文件格式错误: ' + error.message);
-                        console.error('Error parsing template file:', error);
-                    }
-                };
-                
-                reader.readAsText(file);
-            }
+
+            // 获取域名列表
+            const domains = allConfigurations
+                .filter(config => (config.contactPhone || '未设置') === phone)
+                .map(config => config.domain)
+                .join(', ');
+
+            // 确认操作
+            confirmBatchConfig(type, phone, domainIds, domains);
         }
-        
-        // 显示加载提示
-        function showLoading(message) {
-            const toast = $(`
-                <div class="toast align-items-center text-white bg-info border-0" role="alert" data-bs-autohide="false">
-                    <div class="d-flex">
-                        <div class="toast-body">
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            ${message}
+
+        // 确认批量配置操作
+        function confirmBatchConfig(type, phone, domainIds, domains) {
+            const configTypes = {
+                'keyword': '关键词',
+                'comment': '评论规则',
+                'article': '文章'
+            };
+
+            const maxDisplayLength = 100;
+            const displayDomains = domains.length > maxDisplayLength ?
+                domains.substring(0, maxDisplayLength) + '...' :
+                domains;
+
+            // 使用Bootstrap Modal弹窗替代原来的window.open
+            // 创建Modal容器(如果不存在)
+            if (!document.getElementById('configModal')) {
+                const modalHtml = `
+                    <div class="modal fade" id="configModal" tabindex="-1" aria-labelledby="configModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="configModalTitle">批量配置</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body" id="configModalBody">
+                                    <div class="text-center py-5">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">加载中...</span>
+                                        </div>
+                                        <p class="mt-2">正在加载配置...</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `);
-            
-            showToast(toast);
-            const bsToast = bootstrap.Toast.getInstance(toast[0]) || new bootstrap.Toast(toast[0]);
-            return bsToast;
-        }
-        
-        // 解析TXT格式
-        function parseTxtFormat(content) {
-            const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
-            const config = {};
-            const links = [];
-            
-            lines.forEach(line => {
-                if (line.startsWith('link=')) {
-                    // 解析友情链接
-                    const linkParts = line.substring(5).split(',');
-                    const link = {};
-                    
-                    linkParts.forEach(part => {
-                        const [key, value] = part.split('=');
-                        if (key && value) {
-                            link[key.trim()] = value.trim();
-                        }
-                    });
-                    
-                    if (link.name && link.url) {
-                        link.sort = parseInt(link.sort || '0');
-                        links.push(link);
-                    }
-                } else {
-                    // 解析基本配置
-                    const [key, value] = line.split('=');
-                    if (key && value !== undefined) {
-                        config[key.trim()] = value.trim();
-                    }
-                }
-            });
-            
-            // 将字段类型转换为正确的类型
-            if (config.status) {
-                config.status = parseInt(config.status);
+                `;
+                const modalElement = document.createRange().createContextualFragment(modalHtml);
+                document.body.appendChild(modalElement);
             }
-            
-            config.friendlyLinkList = links;
-            return config;
-        }
-        
-        // 导入解析后的模板
-        function importParsedTemplate(configData, overwrite) {
-            // 处理单个配置对象转为数组
-            let configurations = Array.isArray(configData) ? configData : [configData];
-            
-            // 导入配置
-            fetch(`${API_BASE_URL}/domain/batch-import?overwrite=${overwrite}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(configurations)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    uploadTemplateModal.hide();
-                    loadConfigurations();
-                    alert(`模板导入成功，共 ${configurations.length} 条配置！`);
+
+            // 更新Modal标题
+            document.getElementById('configModalTitle').textContent = `批量配置${configTypes[type]}`;
+
+            // 显示Modal
+            const configModal = new bootstrap.Modal(document.getElementById('configModal'));
+            configModal.show();
+            // 处理domainIds，确保它是字符串格式
+            let domainIdsStr = Array.isArray(domainIds) ? domainIds.join(',') : domainIds;
+
+            // 如果domainIds是数组,需要转换为逗号分隔的字符串
+            if (domainIds instanceof Array) {
+                domainIdsStr = domainIds.join(',');
+            }
+            // 通过AJAX加载配置内容
+            fetch(`/admin/config/${type}?batchIds=${domainIdsStr}&phone=${phone}`)
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('configModalBody').innerHTML = html;
+
+                    // 获取加载的表单,修改提交行为
+                    const configForm = document.getElementById('configModalBody').querySelector('form');
+                    if (configForm) {
+                        // 替换原表单提交代码中的window.close()
+                        const originalSubmitEvent = configForm.onsubmit;
+                        configForm.onsubmit = function (e) {
+                            e.preventDefault();
+
+                            const formData = new FormData(this);
+                            const domainIds = formData.get('domainIds');
+
+                            // 根据表单类型获取选中的ID
+                            let selectedItems = [];
+                            let formDataObj = {};
+                            let saveUrl = '';
+
+                            // 根据type类型确定处理方式
+                            if (type === 'article') {
+                                formData.getAll('selectedRules').forEach(id => {
+                                    selectedItems.push(parseInt(id));
+                                });
+                                formDataObj = {
+                                    domainIds: formData.get('domainIds'),
+                                    phone: formData.get('phone'),
+                                    selectedRules: selectedItems,
+                                    overwriteExisting: formData.has('overwriteExisting')
+                                };
+                                saveUrl = '/admin/config/article/save';
+                            } else if (type === 'comment') {
+                                formData.getAll('selectedRules').forEach(id => {
+                                    selectedItems.push(parseInt(id));
+                                });
+                                formDataObj = {
+                                    domainIds: formData.get('domainIds'),
+                                    phone: formData.get('phone'),
+                                    selectedRules: selectedItems,
+                                    overwriteExisting: formData.has('overwriteExisting')
+                                };
+                                saveUrl = '/admin/config/comment/save';
+                            } else if (type === 'keyword') {
+                                formData.getAll('selectedKeywords').forEach(id => {
+                                    selectedItems.push(parseInt(id));
+                                });
+                                formDataObj = {
+                                    domainIds: formData.get('domainIds'),
+                                    phone: formData.get('phone'),
+                                    selectedRules: selectedItems,
+                                    overwriteExisting: formData.has('overwriteExisting')
+                                };
+                                saveUrl = '/admin/config/keyword/save';
+                            }
+                            // 发送请求前显示加载提示
+                            const saveBtn = this.querySelector('button[type="submit"]');
+                            const originalText = saveBtn.innerHTML;
+                            saveBtn.disabled = true;
+                            saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>保存中...';
+                            // 发送请求
+                            fetch(saveUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json'
+                                },
+                                body: JSON.stringify(formDataObj)
+                            }).then(response => response.json())
+                                .then(result => {
+                                    // 恢复按钮状态
+                                    saveBtn.disabled = false;
+                                    saveBtn.innerHTML = originalText;
+                                    // 使用普通alert替代SweetAlert2
+                                    alert(`${configTypes[type]}配置已保存！`);
+                                    // 关闭Modal
+                                    configModal.hide();
+                                    // 刷新表格数据
+                                    loadConfigurations();
+                                }).catch(error => {
+                                    // 恢复按钮状态
+                                    saveBtn.disabled = false;
+                                    saveBtn.innerHTML = originalText;
+
+                                    console.error(`Error saving ${type} config:`, error);
+                                    alert('保存失败: ' + (error.message || '未知错误'));
+                                });
+                        };
+
+                        // 修改取消按钮行为
+                        const cancelBtn = configForm.querySelector('button[onclick="window.close()"]');
+                        if (cancelBtn) {
+                            cancelBtn.onclick = function (e) {
+                                e.preventDefault();
+                                configModal.hide();
+                            };
+                        }
+                    }
                 })
                 .catch(error => {
-                    console.error('Error importing template:', error);
-                    // 模拟成功
-                    uploadTemplateModal.hide();
-                    loadConfigurations();
-                    alert(`模板导入成功，共 ${configurations.length} 条配置！`);
-                });
-        }
-        
-        // 应用模板（设置为新的默认值）
-        function applyTemplate(template) {
-            // 更新默认模板
-            Object.assign(defaultTemplate, template);
-            
-            // 调用API保存模板
-            fetch(`${API_BASE_URL}/domain/template`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(defaultTemplate)
-            })
-                .catch(error => {
-                    console.error('Error saving template:', error);
+                    document.getElementById('configModalBody').innerHTML = `
+                        <div class="alert alert-danger">·
+                            <h5>加载失败</h5>
+                            <p>${error.message || '无法加载配置界面'}</p>
+                        </div>
+                    `;
                 });
         }
 
         // 通用配置弹窗函数
         function showConfigModal(type, id, domain) {
-            const modalTitle = {
-                'keyword': 'SEO关键词配置',
-                'comment': '评论规则配置',
-                'article': '文章规则配置'
-            }[type];
+            const typeNames = {
+                'keyword': 'SEO关键词',
+                'comment': '评论规则',
+                'article': '文章规则'
+            };
+            alert(`将打开${domain}的${typeNames[type]}配置页面，点击确定继续。`);
 
-            const modal = createModal(modalTitle);
-            
-            // 加载配置数据
-            $.get(`/api/${type === 'keyword' ? 'seo/keywords' : type === 'comment' ? 'comment/rules' : 'articles/list'}?domain=${domain}`)
-                .done(function(data) {
-                    renderConfigList(modal, data, type, id, domain);
-                })
-                .fail(function(jqXHR) {
-                    showError(`加载${modalTitle}失败: ${jqXHR.status}`);
-                });
+            // 这里可以根据实际需求跳转到相应的配置页面
+            window.location.href = `/admin/config/${type}?domainId=${id}&domain=${domain}`;
         }
 
-        // 创建模态框
-        function createModal(title) {
-            const modalHtml = `
-                <div class="modal fade" id="configModal" tabindex="-1">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">${title}</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="config-list"></div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                                <button type="button" class="btn btn-primary save-config">保存</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            $('#configModal').remove();
-            $(document.body).append(modalHtml);
-            
-            return new bootstrap.Modal('#configModal');
-        }
+        // 批量删除按手机号
+        function batchDeleteByPhone(phone) {
+            // 先尝试从本地获取该手机号的配置
+            let configsById = allConfigurations.filter(config => (config.contactPhone || '未设置') === phone)
+                .reduce((map, config) => {
+                    map[config.id] = config;
+                    return map;
+                }, {});
 
-        // 渲染配置列表
-        function renderConfigList(modal, items, type, id, domain) {
-            const configList = $('.config-list');
-            configList.empty();
-            
-            // 根据不同类型创建不同的展示内容
-            items.forEach(item => {
-                let content = '';
-                switch(type) {
-                    case 'keyword':
-                        content = `
-                            <div class="list-group-item hover-shadow rounded p-3 mb-2">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="item-${item.id}" data-id="${item.id}" ${item.isInserted ? 'checked' : ''}>
-                                    <label class="form-check-label w-100" for="item-${item.id}">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div class="badge bg-primary">
-                                                ID: ${item.id}
-                                            </div>
-                                            <div class="flex-grow-1 mx-3">
-                                                <h6 class="mb-1">${item.remark}</h6>
-                                                <div class="d-flex align-items-center">
-                                                    <span class="badge bg-info me-2">
-                                                        ${item.type === 1 ? '主关键词' : '长尾关键词'}
-                                                    </span>
-                                                    <span class="badge bg-secondary">
-                                                        ${getUseSceneText(item.useScene)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div class="text-muted border-start ps-3">
-                                                <small class="d-block">最大插入次数</small>
-                                                <strong>${item.maxInsertions}</strong>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                        `;
-                        break;
-                    
-                    case 'comment':
-                        content = `
-                            <div class="list-group-item hover-shadow rounded p-3 mb-2">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="item-${item.id}" data-id="${item.id}" ${item.isInserted ? 'checked' : ''}>
-                                    <label class="form-check-label w-100" for="item-${item.id}">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div class="badge bg-primary">ID: ${item.id}</div>
-                                            <div class="flex-grow-1 mx-3">
-                                                <h6 class="mb-1">${item.name}</h6>
-                                                <p class="mb-1 text-muted">${item.description}</p>
-                                                <div class="d-flex align-items-center">
-                                                    <span class="badge bg-info">
-                                                        评论数量: ${item.minCommentsPerArticle}-${item.maxCommentsPerArticle}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div class="text-muted border-start ps-3">
-                                                <small class="d-block">备注</small>
-                                                <strong>${item.description}</strong>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                        `;
-                        break;
-                    
-                    case 'article':
-                        content = `
-                            <div class="list-group-item hover-shadow rounded p-3 mb-2">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="item-${item.id}" data-id="${item.id}" ${item.isInserted ? 'checked' : ''}>
-                                    <label class="form-check-label w-100" for="item-${item.id}">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div class="badge bg-primary">ID: ${item.id}</div>
-                                            <div class="flex-grow-1 mx-3">
-                                                <h6 class="mb-1">${item.name}</h6>
-                                                <p class="mb-1 text-muted">${item.remark || ''}</p>
-                                                <div class="d-flex align-items-center flex-wrap">
-                                                    <span class="badge bg-info mb-1" style="white-space: normal; word-break: break-all;">
-                                                        配置规则:<br/>
-                                                        ${formatRuleConfig(item.ruleConfig)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                        `;
-                        break;
+            // 获取该手机号下所有已选中的配置ID
+            const selectedIds = Array.from(document.querySelectorAll(`.row-checkbox[data-phone="${phone}"]:checked`))
+                .map(checkbox => checkbox.getAttribute('data-id'));
+
+            // 检查是否有选中的项目
+            if (selectedIds.length === 0) {
+                // 如果没有选中任何项目，提示用户选择
+                const groupCheckbox = document.querySelector(`.group-checkbox[data-phone="${phone}"]`);
+                if (groupCheckbox) {
+                    // 高亮显示该组
+                    const phoneGroupRow = document.querySelector(`.phone-group[data-phone="${phone}"]`);
+                    if (phoneGroupRow) {
+                        phoneGroupRow.style.backgroundColor = '#fff3cd';
+                        setTimeout(() => {
+                            phoneGroupRow.style.backgroundColor = '';
+                        }, 3000);
+                    }
                 }
-                configList.append(content);
-            });
-
-            // 保存按钮事件
-            $('.save-config').off('click').on('click', function() {
-                const selectedIds = [];
-                configList.find('input:checked').each(function() {
-                    selectedIds.push($(this).data('id'));
-                });
                 
-                saveConfig(id, selectedIds, type, domain, modal);
+                alert(`请先勾选要删除的域名配置。\n\n操作方法：\n1. 点击批次号"${phone}"展开域名列表\n2. 勾选要删除的域名配置\n3. 再次点击"删除"按钮`);
+                return;
+            }
+
+            // 如果本地没有配置数据，需要先加载
+            if (Object.keys(configsById).length === 0) {
+                alert('正在获取配置信息...');
+
+                // 加载数据后再处理
+                fetch(`${API_BASE_URL}/domain/by-phone?phone=${encodeURIComponent(phone)}&domain=`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length === 0) {
+                            alert('未找到该手机号下的配置，无法进行批量删除');
+                            return;
+                        }
+
+                        // 更新本地缓存
+                        updateLocalConfigurations(phone, data);
+
+                        // 重新检查选中的ID是否有效
+                        const validSelectedIds = selectedIds.filter(id => 
+                            data.some(config => config.id.toString() === id)
+                        );
+
+                        if (validSelectedIds.length === 0) {
+                            alert('未找到有效的选中配置，请重新选择');
+                            return;
+                        }
+
+                        // 执行批量删除
+                        executeBatchDelete(validSelectedIds, phone, true);
+                    })
+                    .catch(error => {
+                        console.error('Error loading domains for batch delete:', error);
+                        alert('获取配置信息失败，无法进行批量删除');
+                    });
+                return;
+            }
+
+            // 执行批量删除（只删除选中的项目）
+            executeBatchDelete(selectedIds, phone, true);
+        }
+
+        // 执行批量删除
+        function executeBatchDelete(configIds, phone, isSelectedOnly = false) {
+            if (configIds.length === 0) return;
+
+            // 获取要删除的域名列表用于确认
+            const domainsToDelete = configIds.map(id => {
+                const config = allConfigurations.find(c => c.id == id);
+                return config ? config.domain : `ID:${id}`;
             });
 
-            modal.show();
+            // 显示批量删除确认模态框
+            showBatchDeleteConfirmation(configIds, phone, domainsToDelete, isSelectedOnly);
         }
 
-        // 获取使用场景文本
-        function getUseSceneText(useScene) {
-            switch(useScene) {
-                case 1: return '文章内容';
-                case 2: return '评论';
-                case 3: return '文章和评论';
-                default: return '未知';
-            }
+        // 显示批量删除确认模态框
+        function showBatchDeleteConfirmation(configIds, phone, domainsToDelete, isSelectedOnly = false) {
+            // 更新模态框内容
+            document.getElementById('batchDeletePhone').textContent = phone;
+            
+            // 更新删除类型说明
+            const deleteTypeText = isSelectedOnly ? '已选中的' : '全部';
+            const deleteTypeColor = isSelectedOnly ? 'bg-warning' : 'bg-danger';
+            document.getElementById('batchDeleteTypeInfo').innerHTML = 
+                `<strong>删除类型：</strong><span class="badge ${deleteTypeColor}">${deleteTypeText}</span><br>
+                 <strong>删除数量：</strong><span class="fw-bold text-danger">${configIds.length}</span> 个域名配置`;
+            
+            // 生成域名列表HTML，如果是选中的项目则高亮显示
+            const domainListHtml = domainsToDelete.map((domain, index) => 
+                `<div class="mb-1 ${isSelectedOnly ? 'bg-warning bg-opacity-25 p-1 rounded' : ''}">
+                    <span class="badge ${isSelectedOnly ? 'bg-warning' : 'bg-secondary'} me-2">${index + 1}</span>
+                    ${domain}
+                    ${isSelectedOnly ? '<i class="bi bi-check-circle-fill text-success ms-2" title="已选中"></i>' : ''}
+                </div>`
+            ).join('');
+            document.getElementById('batchDeleteDomainList').innerHTML = domainListHtml;
+
+            // 设置确认按钮的数据属性
+            const confirmBtn = document.getElementById('confirmBatchDeleteBtn');
+            confirmBtn.setAttribute('data-phone', phone);
+            confirmBtn.setAttribute('data-config-ids', configIds.join(','));
+            
+            // 更新确认按钮文本
+            confirmBtn.innerHTML = `<i class="bi bi-trash"></i> 确认删除${isSelectedOnly ? '选中项' : '全部'}`;
+
+            // 显示模态框
+            batchDeleteModal.show();
         }
 
-        // 格式化规则配置
-        function formatRuleConfig(ruleConfig) {
-            try {
-                const config = JSON.parse(ruleConfig);
-                return config.map(rule => 
-                    `${rule.typeId}(${rule.minCount}-${rule.maxCount})`
-                ).join(', ');
-            } catch (e) {
-                return '配置解析失败';
-            }
-        }
+        // 执行已确认的批量删除
+        function executeBatchDeleteConfirmed(configIds, phone) {
+            let deleteBtn;
+            let originalText;
 
-        // 保存配置
-        function saveConfig(id, selectedIds, type, domain, modal) {
-            $.ajax({
-                url: `/api/domain/${id}/config/${type}`,
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    domain: domain,
-                    configIds: selectedIds
+            // 判断是全局删除还是按手机号删除
+            if (phone === 'GLOBAL') {
+                // 全局删除，显示在批量操作工具栏
+                deleteBtn = document.querySelector('#batchOperations .btn-outline-danger');
+                originalText = deleteBtn.innerHTML;
+                deleteBtn.disabled = true;
+                deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>删除中...';
+
+                // 调用通用批量删除API
+                fetch(`${API_BASE_URL}/domain/batch-delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(configIds.map(id => parseInt(id)))
                 })
-            })
-            .done(function(response) {
-                if (response.code === 200) {
-                    modal.hide();
-                    showSuccess('配置保存成功');
-                } else {
-                    showError(response.message || '保存失败');
-                }
-            })
-            .fail(function(jqXHR) {
-                showError(`保存失败: ${jqXHR.status}`);
-            });
-        }
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP错误！状态: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        // 恢复按钮状态
+                        deleteBtn.disabled = false;
+                        deleteBtn.innerHTML = originalText;
 
-        // 显示成功提示
-        function showSuccess(message) {
-            const toast = $(`
-                <div class="toast align-items-center text-white bg-success border-0" role="alert">
-                    <div class="d-flex">
-                        <div class="toast-body">${message}</div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                    </div>
-                </div>
-            `);
-            showToast(toast);
-        }
+                        if (result.success) {
+                            // 从本地缓存中移除已删除的配置
+                            allConfigurations = allConfigurations.filter(config => 
+                                !configIds.includes(config.id.toString()));
 
-        // 显示错误提示
-        function showError(message) {
-            const toast = $(`
-                <div class="toast align-items-center text-white bg-danger border-0" role="alert">
-                    <div class="d-flex">
-                        <div class="toast-body">${message}</div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                    </div>
-                </div>
-            `);
-            showToast(toast);
-        }
+                            // 重新加载配置列表
+                            loadConfigurations();
 
-        // 显示提示框
-        function showToast(toast) {
-            const container = $('.toast-container');
-            if (container.length === 0) {
-                $('body').append('<div class="toast-container position-fixed top-0 end-0 p-3"></div>');
+                            alert(`批量删除成功！共删除了${result.deletedCount || configIds.length}个域名配置。`);
+                            
+                            // 清除选中状态
+                            document.querySelectorAll('.row-checkbox:checked').forEach(cb => cb.checked = false);
+                            document.getElementById('selectAll').checked = false;
+                            updateBatchOperationsVisibility();
+                        } else {
+                            throw new Error(result.message || '批量删除失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('批量删除错误:', error);
+                        
+                        // 恢复按钮状态
+                        deleteBtn.disabled = false;
+                        deleteBtn.innerHTML = originalText;
+
+                        alert('批量删除失败：' + error.message);
+                    });
+            } else {
+                // 按手机号删除，显示在对应的删除按钮
+                deleteBtn = document.querySelector(`.batch-delete-btn[data-phone="${phone}"]`);
+                originalText = deleteBtn.innerHTML;
+                deleteBtn.disabled = true;
+                deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>删除中...';
+
+                // 调用按手机号批量删除API
+                fetch(`${API_BASE_URL}/domain/batch-delete-by-phone`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        domainIds: configIds.map(id => parseInt(id))
+                    })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP错误！状态: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(result => {
+                        // 恢复按钮状态
+                        deleteBtn.disabled = false;
+                        deleteBtn.innerHTML = originalText;
+
+                        if (result.success) {
+                            // 从本地缓存中移除已删除的配置
+                            allConfigurations = allConfigurations.filter(config => 
+                                !configIds.includes(config.id.toString()));
+
+                            // 重新加载配置列表
+                            loadConfigurations();
+
+                            alert(`批量删除成功！共删除了${result.deletedCount || configIds.length}个域名配置。`);
+                        } else {
+                            throw new Error(result.message || '批量删除失败');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('批量删除错误:', error);
+                        
+                        // 恢复按钮状态
+                        deleteBtn.disabled = false;
+                        deleteBtn.innerHTML = originalText;
+
+                        alert('批量删除失败：' + error.message);
+
+                        // 如果出错，重新加载该手机号下的数据
+                        if (document.querySelector(`.phone-details[data-phone="${phone}"]:not(.d-none)`)) {
+                            loadDomainsByPhone(phone);
+                        }
+                    });
             }
-            $('.toast-container').append(toast);
-            const bsToast = new bootstrap.Toast(toast);
-            bsToast.show();
-            toast.on('hidden.bs.toast', () => toast.remove());
+        }
+
+        // 更新单个配置状态
+        function updateStatus(id, status) {
+            fetch(`${API_BASE_URL}/domain/${id}/status?status=${status}`, {
+                method: 'PUT'
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`更新失败: ${response.status}`);
+                    }
+
+                    // 更新本地数据
+                    const configIndex = allConfigurations.findIndex(c => c.id == id);
+                    if (configIndex >= 0) {
+                        allConfigurations[configIndex].status = status;
+
+                        // 获取该配置所属的手机号
+                        const phone = allConfigurations[configIndex].contactPhone || '未设置';
+
+                        // 更新手机号组的状态标识
+                        updatePhoneGroupStatus(phone);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating status:', error);
+                    alert(`${status === 1 ? '启用' : '禁用'}失败: ${error.message}`);
+
+                    // 恢复开关状态
+                    const statusSwitch = document.querySelector(`.status-switch[data-id="${id}"]`);
+                    if (statusSwitch) {
+                        statusSwitch.checked = status === 0 ? true : false;
+                    }
+                });
+        }
+
+        // 批量导入结束后刷新表格
+        function refreshTable() {
+            loadConfigurations();
         }
     </script>
 </body>
+
 </html>
-
-
- 

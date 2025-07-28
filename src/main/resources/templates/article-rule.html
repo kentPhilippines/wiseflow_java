@@ -6,7 +6,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/jsoneditor@9.9.0/dist/jsoneditor.min.css" rel="stylesheet">
     <style>
         .rule-card {
             margin-bottom: 20px;
@@ -19,9 +18,6 @@
         }
         .rule-content {
             padding: 20px;
-        }
-        #jsoneditor {
-            height: 400px;
         }
         .article-type-item {
             border-bottom: 1px solid #dee2e6;
@@ -145,26 +141,30 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/jquery.validate.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.9.0/dist/jsoneditor.min.js"></script>
     <script th:inline="javascript">
         // 国际化消息
         const messages = {
-            loadingFailed: [[#{message.loading.failed}]],
-            saveSuccess: [[#{message.save.success}]],
-            saveFailed: [[#{message.save.failed}]],
-            deleteConfirm: [[#{message.delete.confirm}]],
-            deleteSuccess: [[#{message.delete.success}]],
-            deleteFailed: [[#{message.delete.failed}]],
-            networkError: [[#{message.network.error}]],
-            noRules: [[#{message.no.rules}]],
-            configError: [[#{rule.config.error}]],
-            enabled: [[#{rule.status.enabled}]],
-            disabled: [[#{rule.status.disabled}]],
-            edit: [[#{button.edit}]],
-            delete: [[#{button.delete}]],
-            remark: [[#{rule.remark}]],
-            articleTotal: [[#{article.total}]],
-            articleAssigned: [[#{article.assigned}]]
+            loadingFailed: /*[[#{message.loading.failed}]]*/ '加载失败',
+            saveSuccess: /*[[#{message.save.success}]]*/ '保存成功',
+            saveFailed: /*[[#{message.save.failed}]]*/ '保存失败',
+            deleteConfirm: /*[[#{message.delete.confirm}]]*/ '确认删除？',
+            deleteSuccess: /*[[#{message.delete.success}]]*/ '删除成功',
+            deleteFailed: /*[[#{message.delete.failed}]]*/ '删除失败',
+            networkError: /*[[#{message.network.error}]]*/ '网络错误',
+            noRules: /*[[#{message.no.rules}]]*/ '暂无规则',
+            configError: /*[[#{rule.config.error}]]*/ '配置错误',
+            enabled: /*[[#{rule.status.enabled}]]*/ '启用',
+            disabled: /*[[#{rule.status.disabled}]]*/ '禁用',
+            edit: /*[[#{button.edit}]]*/ '编辑',
+            delete: /*[[#{button.delete}]]*/ '删除',
+            remark: /*[[#{rule.remark}]]*/ '备注',
+            articleTotal: /*[[#{article.total}]]*/ '文章总数',
+            articleAssigned: /*[[#{article.assigned}]]*/ '已分配文章',
+            buttonConfirm: /*[[#{button.confirm}]]*/ '确认',
+            buttonCancel: /*[[#{button.cancel}]]*/ '取消',
+            ruleAdd: /*[[#{rule.add}]]*/ '添加规则',
+            nameRequired: /*[[#{validation.name.required}]]*/ '请输入名称',
+            nameMinlength: /*[[#{validation.name.minlength}]]*/ '名称至少2个字符'
         };
         
         // API基础路径
@@ -176,7 +176,7 @@
         // 页面加载完成后执行
         $(document).ready(function() {
             // 使用已有的数据初始化文章类型列表和过滤器
-            const articleCounts = [[${articleCounts}]];
+            const articleCounts = /*[[${articleCounts}]]*/ [];
             console.log('文章统计数据:', articleCounts);
             if (articleCounts && articleCounts.length > 0) {
                 // 提取唯一的文章类型
@@ -270,52 +270,54 @@
             const container = $('#articleTypeList');
             container.empty();
             
+            // 创建文档片段，减少DOM操作次数
+            const fragment = document.createDocumentFragment();
+            
             types.forEach(function(type) {
-                const typeItem = $('<div>').addClass('article-type-item');
+                const typeItem = document.createElement('div');
+                typeItem.className = 'article-type-item';
                 
-                // 复选框和标签
-                const checkboxDiv = $('<div>').addClass('d-flex align-items-center mb-2');
-                const checkbox = $('<input>')
-                    .attr('type', 'checkbox')
-                    .addClass('form-check-input me-2')
-                    .attr('id', `type-${type.id}`)
-                    .data('type-id', type.id);
-                const label = $('<label>')
-                    .addClass('form-check-label')
-                    .attr('for', `type-${type.id}`)
-                    .text(type.name);
-                checkboxDiv.append(checkbox, label);
+                // 使用模板字符串一次性创建HTML结构
+                typeItem.innerHTML = `
+                    <div class="d-flex align-items-center mb-2">
+                        <input type="checkbox" class="form-check-input me-2" id="type-${type.id}" data-type-id="${type.id}">
+                        <label class="form-check-label" for="type-${type.id}">${type.name}</label>
+                    </div>
+                    <div class="range-inputs gap-2 mt-2">
+                        <div class="row mb-2">
+                            <div class="col-6">
+                                <label class="form-label" for="min-${type.id}">最小数量</label>
+                                <input type="number" class="form-control form-control-sm" placeholder="最小数量" 
+                                       min="0" value="10" id="min-${type.id}" title="最小数量">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label" for="max-${type.id}">最大数量</label>
+                                <input type="number" class="form-control form-control-sm" placeholder="最大数量" 
+                                       min="1" value="30" id="max-${type.id}" title="最大数量">
+                            </div>
+                             <div class="col-6">
+                                <label class="form-label" for="time-${type.id}">时间周期</label>
+                                <input type="number" class="form-control form-control-sm" placeholder="小时(0-999)" 
+                                       min="0" max="999" value="5" id="time-${type.id}" title="时间周期(小时)">
+                            </div>
+                        </div>
+                    </div>
+                `;
                 
-                // 数值范围输入
-                const rangeInputs = $('<div>').addClass('range-inputs gap-2 mt-2');
-                const minInput = $('<input>')
-                    .attr('type', 'number')
-                    .addClass('form-control form-control-sm')
-                    .attr('placeholder', '最小数量')
-                    .attr('min', '0')
-                    .attr('value', '10')
-                    .attr('id', `min-${type.id}`);
-                const maxInput = $('<input>')
-                    .attr('type', 'number')
-                    .addClass('form-control form-control-sm')
-                    .attr('placeholder', '最大数量')
-                    .attr('min', '1')
-                    .attr('value', '30')
-                    .attr('id', `max-${type.id}`);
+                // 添加到文档片段
+                fragment.appendChild(typeItem);
                 
-                rangeInputs.append(
-                    $('<div>').addClass('col-6').append(minInput),
-                    $('<div>').addClass('col-6').append(maxInput)
-                );
-                
-                typeItem.append(checkboxDiv, rangeInputs);
-                container.append(typeItem);
-                
-                // 复选框变化事件
-                checkbox.on('change', function() {
-                    typeItem.toggleClass('checked', this.checked);
-                });
+                // 复选框变化事件 - 等待DOM加入后再绑定
+                setTimeout(() => {
+                    const checkbox = $(`#type-${type.id}`);
+                    checkbox.on('change', function() {
+                        $(this).closest('.article-type-item').toggleClass('checked', this.checked);
+                    });
+                }, 0);
             });
+            
+            // 一次性将文档片段添加到容器
+            container.append(fragment);
         }
         
         // 加载规则列表
@@ -366,6 +368,9 @@
             // 卡片头部
             const cardHeader = $('<div>').addClass('card-header d-flex justify-content-between align-items-center');
             cardHeader.append($('<h5>').addClass('mb-0').text(rule.name));
+            //id
+            const id = $('<span>').addClass('badge bg-primary').text('#' + rule.id);
+            cardHeader.append(id);
             const statusBadge = $('<span>').addClass('badge ' + (rule.enabled ? 'bg-success' : 'bg-secondary'))
                 .text(rule.enabled ? messages.enabled : messages.disabled);
             cardHeader.append(statusBadge);
@@ -378,8 +383,10 @@
                 const config = JSON.parse(rule.ruleConfig);
                 const configList = $('<ul>').addClass('list-unstyled mb-3');
                 config.forEach(function(item) {
+                    // 周期格式化
+                    const timeText = item.timeCycle ? `${item.timeCycle}小时` : '5小时';
                     configList.append($('<li>').text(
-                        `${item.typeId}: ${item.minCount}-${item.maxCount}篇`
+                        `${item.typeId}: ${item.minCount}-${item.maxCount}篇 (${timeText})`
                     ));
                 });
                 cardBody.append(configList);
@@ -387,33 +394,26 @@
                 cardBody.append($('<p>').addClass('text-danger').text(messages.configError));
             }
             
+            // 显示时间周期
+            if (rule.startDate || rule.endDate) {
+                const periodDiv = $('<div>').addClass('mb-3');
+                const periodTitle = $('<h6>').addClass('mb-2').text('时间周期:');
+                periodDiv.append(periodTitle);
+                
+                if (rule.startDate) {
+                    periodDiv.append($('<p>').addClass('mb-1').text(`开始日期: ${rule.startDate}`));
+                }
+                if (rule.endDate) {
+                    periodDiv.append($('<p>').addClass('mb-1').text(`结束日期: ${rule.endDate}`));
+                }
+                
+                cardBody.append(periodDiv);
+            }
+            
             // 操作按钮组
             const btnGroup = $('<div>').addClass('btn-group');
             
-            // 关键词配置按钮
-            btnGroup.append(
-                $('<button>').addClass('btn btn-sm btn-warning')
-                    .append($('<i>').addClass('fas fa-tags me-1'))
-                    .append('关键词')
-                    .on('click', () => showKeywordsConfig(rule.id))
-            );
-            
-            // 评论规则配置按钮
-            btnGroup.append(
-                $('<button>').addClass('btn btn-sm btn-info')
-                    .append($('<i>').addClass('fas fa-comments me-1'))
-                    .append('评论规则')
-                    .on('click', () => showCommentRuleConfig(rule.id))
-            );
-            
-            // 文章配置按钮
-            btnGroup.append(
-                $('<button>').addClass('btn btn-sm btn-success')
-                    .append($('<i>').addClass('fas fa-newspaper me-1'))
-                    .append('文章')
-                    .on('click', () => showArticleConfig(rule.id))
-            );
-            
+           
             // 编辑和删除按钮
             btnGroup.append(
                 $('<button>').addClass('btn btn-sm btn-primary')
@@ -430,39 +430,7 @@
             cardInner.append(cardHeader, cardBody);
             return card.append(cardInner);
         }
-
-        // 显示关键词配置弹窗
-        function showKeywordsConfig(ruleId) {
-            $.get(`/api/seo/keywords`)
-                .done(function(response) {
-                    if (response.code === 200) {
-                        const keywords = response.data;
-                        showConfigModal('关键词配置', keywords, ruleId, 'keyword');
-                    }
-                });
-        }
-
-        // 显示评论规则配置弹窗
-        function showCommentRuleConfig(ruleId) {
-            $.get(`/api/comment/rules`)
-                .done(function(response) {
-                    if (response.code === 200) {
-                        const rules = response.data;
-                        showConfigModal('评论规则配置', rules, ruleId, 'comment');
-                    }
-                });
-        }
-
-        // 显示文章配置弹窗
-        function showArticleConfig(ruleId) {
-            $.get(`/api/articles/list`)
-                .done(function(response) {
-                    if (response.code === 200) {
-                        const articles = response.data;
-                        showConfigModal('文章配置', articles, ruleId, 'article');
-                    }
-                });
-        }
+ 
 
         // 通用配置弹窗
         function showConfigModal(title, items, ruleId, type) {
@@ -573,29 +541,36 @@
             }
             
             // 收集选中的文章类型和数值范围
-            const ruleConfig = [];
+            var ruleConfig = [];
             $('#articleTypeList .article-type-item').each(function() {
-                const checkbox = $(this).find('input[type="checkbox"]');
+                var checkbox = $(this).find('input[type="checkbox"]');
                 if (checkbox.prop('checked')) {
-                    const typeId = checkbox.data('type-id');
+                    var typeId = checkbox.data('type-id');
+                    var minCount = parseInt($("#min-" + typeId).val()) || 10;
+                    var maxCount = parseInt($("#max-" + typeId).val()) || 30;
+                    var timeCycle = parseInt($("#time-" + typeId).val()) || 5;
                     ruleConfig.push({
                         typeId: typeId,
-                        minCount: parseInt($(`#min-${typeId}`).val()) || 10,
-                        maxCount: parseInt($(`#max-${typeId}`).val()) || 30
+                        minCount: minCount,
+                        maxCount: maxCount,
+                        timeCycle: timeCycle
                     });
                 }
             });
             
-            const rule = {
+            var rule = {
                 name: $('#name').val().trim(),
-                ruleConfig: JSON.stringify(ruleConfig),  // 将数组转换为JSON字符串
+                ruleConfig: JSON.stringify(ruleConfig),
                 sort: parseInt($('#sort').val()) || 0,
                 enabled: $('#enabled').prop('checked'),
-                remark: $('#remark').val().trim()
+                remark: $('#remark').val().trim(),
+                // 添加时间周期字段
+                startDate: $('#startDate').val() || null,
+                endDate: $('#endDate').val() || null
             };
             
-            const method = currentRuleId ? 'PUT' : 'POST';
-            const url = currentRuleId ? `${API_BASE_URL}/${currentRuleId}` : API_BASE_URL;
+            var method = currentRuleId ? 'PUT' : 'POST';
+            var url = currentRuleId ? API_BASE_URL + '/' + currentRuleId : API_BASE_URL;
             
             $.ajax({
                 url: url,
@@ -622,7 +597,7 @@
             currentRuleId = id;
             $('#modalTitle').text(messages.edit);
             
-            $.get(`${API_BASE_URL}/${id}`)
+            $.get(API_BASE_URL + '/' + id)
                 .done(function(response) {
                     if (response.code === 200) {
                         const rule = response.data;
@@ -630,6 +605,10 @@
                         $('#sort').val(rule.sort);
                         $('#enabled').prop('checked', rule.enabled);
                         $('#remark').val(rule.remark || '');
+                        
+                        // 设置时间周期
+                        $('#startDate').val(rule.startDate || '');
+                        $('#endDate').val(rule.endDate || '');
                         
                         // 设置文章类型选择和数值范围
                         let ruleConfig = [];
@@ -640,12 +619,19 @@
                         }
                         
                         ruleConfig.forEach(function(config) {
-                            const checkbox = $(`#type-${config.typeId}`);
+                            const checkbox = $('#type-' + config.typeId);
                             checkbox.prop('checked', true)
                                 .closest('.article-type-item')
                                 .addClass('checked');
-                            $(`#min-${config.typeId}`).val(config.minCount);
-                            $(`#max-${config.typeId}`).val(config.maxCount);
+                                
+                            // 设置值
+                            $('#min-' + config.typeId).val(config.minCount);
+                            $('#max-' + config.typeId).val(config.maxCount);
+                            
+                            // 设置时间周期
+                            if (config.timeCycle) {
+                                $('#time-' + config.typeId).val(config.timeCycle);
+                            }
                         });
                         
                         $('#ruleModal').modal('show');
@@ -664,12 +650,12 @@
                 title: messages.deleteConfirm,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: [[#{button.confirm}]],
-                cancelButtonText: [[#{button.cancel}]]
+                confirmButtonText: messages.buttonConfirm,
+                cancelButtonText: messages.buttonCancel
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `${API_BASE_URL}/${id}`,
+                        url: API_BASE_URL + '/' + id,
                         method: 'DELETE'
                     })
                     .done(function(response) {
@@ -710,8 +696,10 @@
         function resetForm() {
             $('#ruleForm')[0].reset();
             currentRuleId = null;
-            $('#modalTitle').text([[#{rule.add}]]);
-            editor.set({});
+            $('#modalTitle').text(messages.ruleAdd);
+            // 重置时间周期字段
+            $('#startDate').val('');
+            $('#endDate').val('');
         }
         
         // 初始化模态框事件
@@ -727,8 +715,8 @@
             },
             messages: {
                 name: {
-                    required: [[#{validation.name.required}]],
-                    minlength: [[#{validation.name.minlength}]]
+                    required: messages.nameRequired,
+                    minlength: messages.nameMinlength
                 }
             },
             errorElement: 'span',

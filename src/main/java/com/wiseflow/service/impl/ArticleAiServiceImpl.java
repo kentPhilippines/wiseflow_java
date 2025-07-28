@@ -1,5 +1,7 @@
 package com.wiseflow.service.impl;
 
+import cn.hutool.core.util.CharsetUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONUtil;
@@ -13,7 +15,9 @@ import org.jsoup.select.Elements;
 
 import com.wiseflow.service.ArticleAiService;
 import com.wiseflow.model.ArticleAiTask;
+import com.wiseflow.entity.Article;
 import com.wiseflow.entity.ArticleRewrite;
+import com.wiseflow.mapper.ArticleMapper;
 import com.wiseflow.mapper.ArticleRewriteMapper;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -28,6 +32,8 @@ import org.springframework.http.MediaType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.wiseflow.config.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.Map;
 import java.util.HashMap;
@@ -51,6 +57,7 @@ public class ArticleAiServiceImpl implements ArticleAiService {
     private final Map<String, ArticleAiTask> taskMap = new ConcurrentHashMap<>();
     private final ArticleRewriteMapper articleRewriteMapper;
     private final RestTemplate restTemplate;
+    private final ArticleMapper articleMapper;
 
     private static final int MAX_RETRIES = 5;
     private static final int RETRY_DELAY = 5000;
@@ -91,8 +98,9 @@ public class ArticleAiServiceImpl implements ArticleAiService {
     @Value("${article.ai.model.name:deepseek-chat}")
     private String modelName;
 
-    public ArticleAiServiceImpl(ArticleRewriteMapper articleRewriteMapper, RestTemplate restTemplate) {
+    public ArticleAiServiceImpl(ArticleRewriteMapper articleRewriteMapper, RestTemplate restTemplate, ArticleMapper articleMapper) {
         this.articleRewriteMapper = articleRewriteMapper;
+        this.articleMapper = articleMapper;
 
         // 配置 RestTemplate 的超时时间
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
@@ -105,100 +113,9 @@ public class ArticleAiServiceImpl implements ArticleAiService {
  
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
-    
-    @Override
-    public String submitAiTask(Long articleId, String title, String content) {
-        log.info("提交AI改写任务: articleId={}", articleId);
 
-        String taskId = UUID.randomUUID().toString();
-        ArticleAiTask task = new ArticleAiTask();
-        task.setTaskId(taskId);
-        task.setArticleId(articleId);
-        task.setStatus("PENDING");
-        task.setCreateTime(LocalDateTime.now());
-        task.setUpdateTime(LocalDateTime.now());
-        task.setContent(content);
-        task.setTitle(title);
-        taskMap.put(taskId, task);
-
-        return taskId;
-    }
-
-    @Override
-    public ArticleAiTask getTaskStatus(String taskId) {
-        return taskMap.get(taskId);
-    }
- //   @Scheduled(cron = "${article.ai.process.cron:0/15 * * * * ?}")
-    public void processPendingArticles() {
-        try {
-            // 检查当前时间是否在优惠时段
-            LocalTime now = LocalTime.now();
-            LocalTime startTime = LocalTime.of(0, 30);
-            LocalTime endTime = LocalTime.of(8, 30);
-
-            // 判断是否在优惠时段内
-            boolean isDiscountTime = false;
-            if (now.isAfter(startTime) && now.isBefore(endTime)) {
-                isDiscountTime = true;
-            }
-
-            if (isDiscountTime) {
-                // 优惠时段使用6个线程并行处理
-                for (int i = 0; i < 6; i++) {
-                    ArticleAiTask task = taskMap.values().stream()
-                        .filter(t -> "PENDING".equals(t.getStatus()))
-                        .findFirst()
-                        .orElse(null);
-                    
-                    if (task == null) {
-                        log.debug("没有待处理的任务");
-                        return;
-                    }
-
-                    // 使用CAS操作更新任务状态，防止重复处理
-                    if (taskMap.replace(task.getTaskId(), task, 
-                        updateTaskStatus(task, "PROCESSING"))) {
-                        log.info("任务{}开始处理", task.getTaskId());
-                        executorService.submit(() -> processNextPendingArticle(task));
-                    } else {
-                        log.debug("任务{}已被其他线程处理", task.getTaskId());
-                    }
-                }
-            } else {
-                // 非优惠时段单线程处理
-                ArticleAiTask task = taskMap.values().stream()
-                    .filter(t -> "PENDING".equals(t.getStatus()))
-                    .findFirst()
-                    .orElse(null);
-                
-                if (task == null) {
-                    log.debug("没有待处理的任务");
-                    return;
-                }
-
-                // 使用CAS操作更新任务状态，防止重复处理
-                if (taskMap.replace(task.getTaskId(), task, 
-                    updateTaskStatus(task, "PROCESSING"))) {
-                    log.info("任务{}开始处理", task.getTaskId());
-                    processNextPendingArticle(task);
-                } else {
-                    log.debug("任务{}已被其他线程处理", task.getTaskId());
-                }
-            }
-        } catch(Exception e) {
-            log.error("处理待改写文章任务异常: {}", e.getMessage(), e);
-        }
-    }
   
-    @Override
-    public String submitTask(Long articleId, String title, String content) {
-        return null;
-    }
 
-    @Override
-    public String getTaskResult(String taskId) {
-        return null;
-    }
 
 
   
@@ -270,7 +187,6 @@ public class ArticleAiServiceImpl implements ArticleAiService {
         
     }
 
-    @Override
     @Async
     public CompletableFuture<ArticleRewrite> processArticleAsync(Long articleId, String title, String content) {
         return CompletableFuture.supplyAsync(() -> {
@@ -608,16 +524,25 @@ public class ArticleAiServiceImpl implements ArticleAiService {
         return overlapCount;
     }
 
-    private ArticleAiTask updateTaskStatus(ArticleAiTask task, String status) {
-        ArticleAiTask newTask = new ArticleAiTask();
-        newTask.setTaskId(task.getTaskId());
-        newTask.setArticleId(task.getArticleId());
-        newTask.setTitle(task.getTitle());
-        newTask.setContent(task.getContent());
-        newTask.setStatus(status);
-        newTask.setCreateTime(task.getCreateTime());
-        newTask.setUpdateTime(LocalDateTime.now());
-        return newTask;
+    @Override
+    public String processArticleTitle(Integer id) {
+        log.debug("处理文章标题: id={}", id);
+        Article article = articleMapper.selectOne(new LambdaQueryWrapper<Article>().eq(Article::getOriginalArticleId, id));
+        if(article==null){
+            return null;
+        }
+        return article.getTitle();
     }
+
+    @Override
+    public String processArticleContent(Integer id) {
+        log.debug("处理文章内容: id={}", id);
+        Article article = articleMapper.selectOne(new LambdaQueryWrapper<Article>().eq(Article::getOriginalArticleId, id));
+        if(article==null){
+            return null;
+        }
+        return article.getContent();
+    }
+
 
 }

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>关键词配置</title>
+</head>
+<body>
+    <!-- 关键词配置片段 -->
+    <div th:fragment="keyword-config">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark py-3">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-key me-2"></i>SEO关键词配置</h5>
+                <small th:if="${batchMode}" class="text-dark">正在批量配置 <span th:text="${totalDomains}"></span> 个域名</small>
+            </div>
+            <div class="card-body p-4">
+                <form id="keywordConfigForm" method="post">
+                    <input type="hidden" id="domainIds" name="domainIds" th:value="${domainIds}">
+                    <input type="hidden" id="phone" name="phone" th:value="${phone}">
+                    <input type="hidden" id="id" name="id" th:value="${seoKeyword != null ? seoKeyword.id : ''}">
+                    
+                    <!-- 只保留需要勾选的关键词列表 -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold fs-5 mb-3"><i class="fas fa-tags me-2"></i>可用SEO关键词</label>
+                        <div class="border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+                            <div class="list-group">
+                                <div class="list-group-item border-0 py-2" th:each="keyword, status : ${seoKeywords}">
+                                    <div class="d-flex align-items-center">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   th:id="${'keyword-' + keyword.id}" 
+                                                   th:name="selectedKeywords" 
+                                                   th:value="${keyword.id}"
+                                                   th:checked="${keyword.isInserted}">
+                                            <label class="form-check-label ms-1" th:for="${'keyword-' + keyword.id}">
+                                                <span class="text-primary fw-medium" th:text="${keyword.keyword}"></span>
+                                                <span class="badge bg-secondary ms-2" th:text="'#' + ${status.count}"></span>
+                                                <div class="d-flex align-items-center flex-wrap mt-1">
+                                                    <span class="badge rounded-pill bg-info me-2" th:if="${keyword.type == 1}">主关键词</span>
+                                                    <span class="badge rounded-pill bg-info me-2" th:if="${keyword.type == 2}">长尾关键词</span>
+                                                    <span class="badge rounded-pill bg-info me-2" th:if="${keyword.type == 3}">描述文本</span>
+                                                    
+                                                    <span class="badge rounded-pill bg-primary me-2" th:if="${keyword.useScene == 1}">文章内容</span>
+                                                    <span class="badge rounded-pill bg-primary me-2" th:if="${keyword.useScene == 2}">评论</span>
+                                                    <span class="badge rounded-pill bg-primary me-2" th:if="${keyword.useScene == 3}">两者都用</span>
+                                                    
+                                                    <span class="badge rounded-pill bg-success me-2" th:if="${keyword.enabled}">启用</span>
+                                                    <span class="badge rounded-pill bg-danger me-2" th:unless="${keyword.enabled}">禁用</span>
+                                                </div>
+                                                <small class="text-muted d-block mt-1" th:if="${keyword.remark != null && !keyword.remark.isEmpty()}" th:text="${keyword.remark}"></small>
+                                                <small class="text-muted d-block mt-1" th:if="${keyword.targetUrl != null && !keyword.targetUrl.isEmpty()}">
+                                                    <i class="fas fa-link"></i> <span th:text="${keyword.targetUrl}"></span>
+                                                </small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="list-group-item border-0 text-center py-3" th:if="${#lists.isEmpty(seoKeywords)}">
+                                    <span class="text-muted">暂无可用的SEO关键词</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle me-1"></i>请勾选需要应用的SEO关键词
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary" onclick="window.close()">
+                            <i class="fas fa-times me-1"></i>取消
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="saveKeywordConfig">
+                            <i class="fas fa-save me-1"></i>保存配置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <script th:inline="javascript">
+            document.addEventListener('DOMContentLoaded', function() {
+                // 表单提交
+                document.getElementById('keywordConfigForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    const domainIds = formData.get('domainIds');
+                    
+                    // 获取选中的关键词ID
+                    const selectedKeywords = [];
+                    formData.getAll('selectedKeywords').forEach(keywordId => {
+                        selectedKeywords.push(parseInt(keywordId));
+                    });
+                    
+                    // 转换为JSON对象
+                    const data = {
+                        domainIds: formData.get('domainIds'),
+                        phone: formData.get('phone'),
+                        selectedRules: selectedKeywords,
+                        overwriteExisting: formData.has('overwriteExisting')
+                    };
+                    
+                    // 发送请求前显示加载提示
+                    const saveBtn = document.getElementById('saveKeywordConfig');
+                    const originalText = saveBtn.innerHTML;
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>保存中...';
+                    
+                    // 发送请求
+                    fetch('/admin/config/keyword/save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        // 恢复按钮状态
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                        
+                        if (result.success) {
+                            alert('关键词配置保存成功！');
+                            window.close();
+                        } else {
+                            alert('保存失败: ' + result.message);
+                        }
+                    })
+                    .catch(error => {
+                        // 恢复按钮状态
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                        
+                        console.error('Error saving keyword config:', error);
+                        alert('保存关键词配置失败: ' + error.message);
+                    });
+                });
+            });
+        </script>
+    </div>
+</body>
+</html> 

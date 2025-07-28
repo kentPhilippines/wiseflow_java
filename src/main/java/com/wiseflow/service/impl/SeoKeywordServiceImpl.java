@@ -141,4 +141,34 @@ public class SeoKeywordServiceImpl extends ServiceImpl<SeoKeywordMapper, SeoKeyw
 
  
     }
+
+    @Override
+    public List<SeoKeyword> batchConfigKeyword(List<Integer> batchIdsList, String phone) {
+    
+
+
+        List<DomainConfig> domainConfigs = domainConfigService.findAllPhone(phone,"");
+  
+    //查询中间表
+    List<DomainSeoKeyword> domainSeoKeywords = domainSeoKeywordMapper.selectList(
+        new QueryWrapper<DomainSeoKeyword>()
+            .in("domain_config_id", domainConfigs.get(0).getId())
+    );
+   
+        
+        //查询所有的
+        List<SeoKeyword> seoKeywords = seoKeywordMapper.selectList(
+            new QueryWrapper<SeoKeyword>()
+                .eq("enabled", true)
+                .orderByAsc("id")
+        );
+
+        //设置是否已插入
+        seoKeywords.forEach(seoKeyword -> {
+            seoKeyword.setIsInserted(domainSeoKeywords.stream().anyMatch(domainSeoKeyword -> domainSeoKeyword.getSeoKeywordId() == seoKeyword.getId()));
+        });
+
+
+        return seoKeywords;
+    }
 } 

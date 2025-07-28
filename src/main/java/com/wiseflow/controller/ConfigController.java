@@ -54,6 +54,7 @@ public class ConfigController {
             data.put("contactPhone", config.getContactPhone());
             data.put("contactEmail", config.getContactEmail());
             data.put("contactAddress", config.getContactAddress());
+            data.put("serverInfo", config.getServerInfo());
             data.put("friendlyLinks", config.getFriendlyLinkList());
             data.put("views", config.getViewsPath());
             

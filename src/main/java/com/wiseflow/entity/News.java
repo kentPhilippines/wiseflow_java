@@ -53,7 +53,7 @@ public class News {
     /**
      * 是否需要AI改写
      */
-    private Boolean needRewrite = false;
+    private Boolean needRewrite ;
     /**
      * 改写状态：
      * PENDING - 待处理

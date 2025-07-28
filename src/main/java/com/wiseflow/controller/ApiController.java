@@ -9,19 +9,26 @@ import com.wiseflow.entity.News;
 import com.wiseflow.service.CategoryService;
 import com.wiseflow.service.CommentService;
 import com.wiseflow.service.NewsService;
+import com.wiseflow.service.ArticleAiService;
 import com.wiseflow.service.TagService;
+
+import cn.hutool.core.util.StrUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 
 /**
  * API控制器，提供RESTful API接口
@@ -36,12 +43,12 @@ public class ApiController {
     private final CategoryService categoryService;
     private final TagService tagService;
     private final CommentService commentService;
+    private final ArticleAiService articleAiService;
 
     /**
      * 获取新闻列表
      */
     @GetMapping("/news/list")
-    @Cacheable(value = CacheConfig.CACHE_NEWS_LIST, key = "'categoryName:' + #categoryName + ':pageNum:' + #pageNum + ':pageSize:' + #pageSize + ':all:' + #all")
     public ResponseEntity<Map<String, Object>> getNewsList(
             @RequestParam(required = false) String categoryName,
             @RequestParam(defaultValue = "1") int pageNum,
@@ -82,7 +89,6 @@ public class ApiController {
             data.put("total", newsPage.getTotal());
             data.put("pages", newsPage.getPages());
         }
-        
         response.put("code", 200);
         response.put("message", "success");
         response.put("data", data);
@@ -129,7 +135,6 @@ public class ApiController {
      * 获取新闻详情并缓存结果
      * 在增加浏览量后调用此方法，确保浏览量更新不受缓存影响
      */
-    @Cacheable(value = CacheConfig.CACHE_NEWS_DETAIL_API, key = "#news.id")
     public Map<String, Object> getNewsDetailWithCache(News news) {
         return convertNewsToDetailMap(news);
     }
@@ -138,7 +143,6 @@ public class ApiController {
      * 获取热门新闻
      */
     @GetMapping("/news/hot")
-    @Cacheable(value = CacheConfig.CACHE_HOT_NEWS, key = "'limit:' + #limit + ':all:' + #all")
     public ResponseEntity<Map<String, Object>> getHotNews(
             @RequestParam(defaultValue = "5") int limit,
             @RequestParam(required = false, defaultValue = "false") boolean all,
@@ -171,7 +175,6 @@ public class ApiController {
      * 获取分类列表
      */
     @GetMapping("/category/list")
-    @Cacheable(value = CacheConfig.CACHE_CATEGORY_LIST)
     public ResponseEntity<Map<String, Object>> getCategoryList() {
         log.info("获取分类列表");
         
@@ -187,7 +190,6 @@ public class ApiController {
      * 获取标签列表
      */
     @GetMapping("/tag/list")
-    @Cacheable(value = CacheConfig.CACHE_TAG_LIST, key = "'limit:' + #limit")
     public ResponseEntity<Map<String, Object>> getTagList(@RequestParam(defaultValue = "20") int limit,
             @RequestParam(required = false, defaultValue = "0") int domainConfig) {
         log.info("获取标签列表: limit={}, domainConfig={}", limit, domainConfig);
@@ -207,7 +209,6 @@ public class ApiController {
      * 搜索新闻
      */
     @GetMapping("/news/search")
-    @Cacheable(value = CacheConfig.CACHE_SEARCH_RESULT, key = "'keyword:' + #keyword + ':pageNum:' + #pageNum + ':pageSize:' + #pageSize + ':all:' + #all")
     public ResponseEntity<Map<String, Object>> searchNews(
             @RequestParam String keyword,
             @RequestParam(defaultValue = "1") int pageNum,
@@ -250,7 +251,6 @@ public class ApiController {
      * 获取指定分类的新闻数量
      */
     @GetMapping("/category/{id}/count")
-    @Cacheable(value = CacheConfig.CACHE_CATEGORY_NEWS_COUNT, key = "#id")
     public ResponseEntity<Map<String, Object>> getCategoryNewsCount(@PathVariable Integer id,
             @RequestParam(required = false ) String domainConfig) {
         log.info("获取分类新闻数量: id={}, domainConfig={}", id, domainConfig);
@@ -275,13 +275,16 @@ public class ApiController {
     
     /**
      * 将News对象转换为Map（列表展示用）
-     * 使用本地缓存提高性能
      */
-    @Cacheable(value = "newsListMap", key = "#news.id")
     public Map<String, Object> convertNewsToMap(News news) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", news.getId());
-        map.put("title", news.getTitle());
+        String title = articleAiService.processArticleTitle(news.getId());
+        if(StrUtil.isNotBlank(title)){
+            map.put("title", title);
+        }else{
+            map.put("title", news.getTitle());
+        }
         map.put("categoryName", news.getCategoryName());
         map.put("publishTime", news.getPublishTime());
         map.put("viewCount", news.getViewCount());
@@ -292,7 +295,6 @@ public class ApiController {
         if (news.getContent() != null) {
             map.put("summary", news.getContent().getSummary());
         }
-        
         return map;
     }
     
@@ -301,8 +303,13 @@ public class ApiController {
      */
     private Map<String, Object> convertNewsToDetailMap(News news) {
         Map<String, Object> map = new HashMap<>();
+        String title =    articleAiService.processArticleTitle(news.getId());
+        if(StrUtil.isNotBlank(title)){
+            map.put("title", title);
+        }else{
+            map.put("title", news.getTitle());
+        }
         map.put("id", news.getId());
-        map.put("title", news.getTitle());
         map.put("subtitle", news.getSubtitle());
         map.put("categoryId", news.getCategoryId());
         map.put("categoryName", news.getCategoryName());
@@ -316,7 +323,13 @@ public class ApiController {
         
         // 内容
         if (news.getContent() != null) {
-            map.put("content", news.getContent().getContent());
+            String content =    articleAiService.processArticleContent(news.getId());
+            if(StrUtil.isNotBlank(content)){
+                content = replaceContent(content);
+                map.put("content", content);
+            }else{
+                map.put("content", news.getContent().getContent());
+            }
             map.put("contentHtml", news.getContent().getContentHtml());
             map.put("summary", news.getContent().getSummary());
         }
@@ -400,5 +413,34 @@ public class ApiController {
 
         return ResponseEntity.ok(response);
     }
-    
+
+
+
+    //替换内容的方法
+    public String replaceContent(String content){
+        // 定义需要替换的标签
+        String[] tags = {"主关键词", "描文本", "SEO关键词"};
+        
+        String result = content;
+        
+        // 替换单个标签
+        for (String tag : tags) {
+            result = result.replace("[" + tag + "]", "");
+            result = result.replace("[/" + tag + "]", "");
+        }
+        
+        // 替换标签组合
+        for (String tag1 : tags) {
+            for (String tag2 : tags) {
+                result = result.replace("[" + tag1 + "][" + tag2 + "]", "");
+                result = result.replace("[/" + tag1 + "][" + tag2 + "]", "");
+                result = result.replace("（[" + tag1 + "][" + tag2 + "]）", "");
+                result = result.replace("（[" + tag1 + "]）", "");
+                result = result.replace("（" + tag2 + "）", "");
+                result = result.replace("（" + tag1 + "）", "");
+            }
+        }
+        
+        return result;
+    }
 } 

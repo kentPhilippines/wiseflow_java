@@ -173,6 +173,22 @@
         // 当前编辑的关键词ID
         let currentKeywordId = null;
         
+        // Thymeleaf国际化消息
+        const msg = {
+            sceneContent: /*[[#{seo.keyword.scene.content}]]*/ '文章内容',
+            sceneComment: /*[[#{seo.keyword.scene.comment}]]*/ '评论',
+            sceneBoth: /*[[#{seo.keyword.scene.both}]]*/ '两者都用',
+            sentimentPositive: /*[[#{seo.keyword.sentiment.positive}]]*/ '正面',
+            sentimentNeutral: /*[[#{seo.keyword.sentiment.neutral}]]*/ '中性',
+            sentimentNegative: /*[[#{seo.keyword.sentiment.negative}]]*/ '负面',
+            saveSuccess: /*[[#{message.save.success}]]*/ '保存成功',
+            saveError: /*[[#{message.save.error}]]*/ '保存失败',
+            networkError: /*[[#{message.network.error}]]*/ '网络错误',
+            editKeyword: /*[[#{seo.keyword.edit}]]*/ '编辑关键词',
+            typeRequired: /*[[#{validation.type.required}]]*/ '请选择类型',
+            sceneRequired: /*[[#{validation.scene.required}]]*/ '请选择场景'
+        };
+        
         // 页面加载完成后执行
         document.addEventListener('DOMContentLoaded', function() {
             loadKeywords();
@@ -187,7 +203,7 @@
         
         // 加载关键词列表
         function loadKeywords() {
-            let url = `${API_BASE_URL}/list`;
+            let url = API_BASE_URL + '/list';
             
             // 根据筛选条件构建URL
             const type = $('#typeFilter').val();
@@ -195,11 +211,11 @@
             const status = $('#statusFilter').val();
             
             if (type) {
-                url = `${API_BASE_URL}/type/${type}`;
+                url = API_BASE_URL + '/type/' + type;
             } else if (scene) {
-                url = `${API_BASE_URL}/scene/${scene}`;
+                url = API_BASE_URL + '/scene/' + scene;
             } else if (status !== '') {
-                url = `${API_BASE_URL}/status/${status === '1'}`;
+                url = API_BASE_URL + '/status/' + (status === '1');
             }
             
             $.get(url)
@@ -237,7 +253,9 @@
                 const cardBody = $('<div>').addClass('card-body');
                 
                 // 添加关键词信息
-                cardBody.append($('<h5>').addClass('card-title fw-bold text-primary mb-2').text(keyword.keyword))
+                cardBody.append($('<h5>').addClass('card-title fw-bold text-primary mb-2')
+                        .append($('<span>').text(keyword.keyword))
+                        .append($('<small>').addClass('ms-2 text-muted').text('#' + keyword.id)))
                     .append($('<div>').addClass('badge bg-secondary rounded-pill').text(
                         keyword.type === 1 ? '主关键词' : 
                         keyword.type === 2 ? '长尾关键词' :
@@ -283,9 +301,9 @@
         // 获取场景文本
         function getUseSceneText(scene) {
             switch(scene) {
-                case 1: return [[#{seo.keyword.scene.content}]];
-                case 2: return [[#{seo.keyword.scene.comment}]];
-                case 3: return [[#{seo.keyword.scene.both}]];
+                case 1: return msg.sceneContent;
+                case 2: return msg.sceneComment;
+                case 3: return msg.sceneBoth;
                 default: return '';
             }
         }
@@ -293,9 +311,9 @@
         // 获取情感文本
         function getCommentSentimentText(sentiment) {
             switch(sentiment) {
-                case 1: return [[#{seo.keyword.sentiment.positive}]];
-                case 2: return [[#{seo.keyword.sentiment.neutral}]];
-                case 3: return [[#{seo.keyword.sentiment.negative}]];
+                case 1: return msg.sentimentPositive;
+                case 2: return msg.sentimentNeutral;
+                case 3: return msg.sentimentNegative;
                 default: return '';
             }
         }
@@ -316,7 +334,7 @@
             
             const id = currentKeywordId;
             const method = id ? 'PUT' : 'POST';
-            const url = id ? `${API_BASE_URL}/${id}` : API_BASE_URL;
+            const url = id ? API_BASE_URL + '/' + id : API_BASE_URL;
             
             $.ajax({
                 url: url,
@@ -327,23 +345,23 @@
             .done(function(response) {
                 if (response.code === 200) {
                     $('#keywordModal').modal('hide');
-                    showSuccess([[#{message.save.success}]]);
+                    showSuccess(msg.saveSuccess);
                     loadKeywords();
                 } else {
-                    showError(response.message || [[#{message.save.error}]]);
+                    showError(response.message || msg.saveError);
                 }
             })
             .fail(function(jqXHR) {
-                showError([[#{message.network.error}]]);
+                showError(msg.networkError);
             });
         }
         
         // 编辑关键词
         function editKeyword(id) {
             currentKeywordId = id;
-            document.getElementById('modalTitle').textContent = [[#{seo.keyword.edit}]];
+            document.getElementById('modalTitle').textContent = msg.editKeyword;
             
-            $.get(`${API_BASE_URL}/${id}`)
+            $.get(API_BASE_URL + '/' + id)
                 .done(function(response) {
                     if (response.code === 200) {
                         const keyword = response.data;
@@ -375,7 +393,7 @@
             }
             
             $.ajax({
-                url: `${API_BASE_URL}/${id}`,
+                url: API_BASE_URL + '/' + id,
                 method: 'DELETE'
             })
             .done(function(response) {
@@ -442,10 +460,10 @@
             },
             messages: {
                 type: {
-                    required: [[#{validation.type.required}]]
+                    required: msg.typeRequired
                 },
                 scene: {
-                    required: [[#{validation.scene.required}]]
+                    required: msg.sceneRequired
                 }
             },
             errorElement: 'span',

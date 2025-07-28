@@ -185,44 +185,43 @@
             rules.forEach(rule => {
                 const ruleCard = document.createElement('div');
                 ruleCard.className = 'col-md-6 mb-4';
-                ruleCard.innerHTML = `
-                    <div class="card rule-card">
-                        <div class="rule-header">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">${rule.name}</h5>
-                                <div class="btn-group">
-                                    <button class="btn btn-sm btn-outline-primary edit-rule" data-id="${rule.id}">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger delete-rule" data-id="${rule.id}">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="rule-content">
-                            <p class="text-muted mb-3">${rule.description || '无描述'}</p>
-                            <div class="mb-2">
-                                <strong>评论数量：</strong> ${rule.minCommentsPerArticle} - ${rule.maxCommentsPerArticle} 条/文章
-                            </div>
-                            <div class="mb-2">
-                                <strong>评论长度：</strong> ${rule.minCommentLength} - ${rule.maxCommentLength} 字符
-                            </div>
-                            <div class="mb-2">
-                                <strong>时间范围：</strong> ${rule.commentTimeRange} 小时
-                            </div>
-                            <div class="mb-2">
-                                <strong>关键词比例：</strong> ${rule.keywordIncludeRate}%
-                            </div>
-                            <div class="mb-2">
-                                <strong>AI评论：</strong> ${rule.enableAiComment ? '启用' : '禁用'}
-                            </div>
-                            <div class="mb-2">
-                                <strong>状态：</strong> ${rule.enabled ? '启用' : '禁用'}
-                            </div>
-                        </div>
-                    </div>
-                `;
+                ruleCard.innerHTML = 
+                    '<div class="card rule-card">' +
+                        '<div class="rule-header">' +
+                            '<div class="d-flex justify-content-between align-items-center">' +
+                                '<h5 class="mb-0">' + rule.name + ' <small class="text-muted">#' + rule.id + '</small></h5>' +
+                                '<div class="btn-group">' +
+                                    '<button class="btn btn-sm btn-outline-primary edit-rule" data-id="' + rule.id + '">' +
+                                        '<i class="fas fa-edit"></i>' +
+                                    '</button>' +
+                                    '<button class="btn btn-sm btn-outline-danger delete-rule" data-id="' + rule.id + '">' +
+                                        '<i class="fas fa-trash"></i>' +
+                                    '</button>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="rule-content">' +
+                            '<p class="text-muted mb-3">' + (rule.description || '无描述') + '</p>' +
+                            '<div class="mb-2">' +
+                                '<strong>评论数量：</strong> ' + rule.minCommentsPerArticle + ' - ' + rule.maxCommentsPerArticle + ' 条/文章' +
+                            '</div>' +
+                            '<div class="mb-2">' +
+                                '<strong>评论长度：</strong> ' + rule.minCommentLength + ' - ' + rule.maxCommentLength + ' 字符' +
+                            '</div>' +
+                            '<div class="mb-2">' +
+                                '<strong>时间范围：</strong> ' + rule.commentTimeRange + ' 小时' +
+                            '</div>' +
+                            '<div class="mb-2">' +
+                                '<strong>关键词比例：</strong> ' + rule.keywordIncludeRate + '%' +
+                            '</div>' +
+                            '<div class="mb-2">' +
+                                '<strong>AI评论：</strong> ' + (rule.enableAiComment ? '启用' : '禁用') +
+                            '</div>' +
+                            '<div class="mb-2">' +
+                                '<strong>状态：</strong> ' + (rule.enabled ? '启用' : '禁用') +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
                 
                 // 添加编辑事件
                 ruleCard.querySelector('.edit-rule').addEventListener('click', () => editRule(rule));
@@ -249,7 +248,7 @@
             };
             
             const method = currentRuleId ? 'PUT' : 'POST';
-            const url = currentRuleId ? `${API_BASE_URL}/${currentRuleId}` : API_BASE_URL;
+            const url = currentRuleId ? API_BASE_URL + '/' + currentRuleId : API_BASE_URL;
             
             fetch(url, {
                 method: method,
@@ -311,7 +310,7 @@
         // 删除规则
         function deleteRule(id) {
             if (confirm('确定要删除这条规则吗？')) {
-                fetch(`${API_BASE_URL}/${id}`, {
+                fetch(API_BASE_URL + '/' + id, {
                     method: 'DELETE'
                 })
                 .then(response => {

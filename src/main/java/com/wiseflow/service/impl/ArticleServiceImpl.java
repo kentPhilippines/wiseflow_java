@@ -51,7 +51,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     @Override
     public List<Article> findByDomain(String domain) {
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Article::getDomain, domain)
+        queryWrapper
                 .orderByDesc(Article::getCreateTime);
         return articleMapper.selectList(queryWrapper);
     }
@@ -69,11 +69,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         log.info("获取待改写文章: domain={}, limit={}", domain, limit);
         
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Article::getDomain, domain)
+        queryWrapper
                 .eq(Article::getIsOriginal, true) // 只获取原创文章
-                .isNull(Article::getIsRewritten) // 未设置改写状态的
                 .or()
-                .eq(Article::getIsRewritten, false) // 或未改写的
                 .orderByDesc(Article::getCreateTime) // 最新的优先
                 .last("LIMIT " + limit); // 限制数量
         
@@ -82,20 +80,5 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         return articles;
     }
     
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void updateArticleRewriteStatus(Long articleId, boolean isRewritten) {
-        log.info("更新文章改写状态: articleId={}, isRewritten={}", articleId, isRewritten);
-        
-        LambdaUpdateWrapper<Article> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(Article::getId, articleId)
-                .set(Article::getIsRewritten, isRewritten);
-        
-        int rows = articleMapper.update(null, updateWrapper);
-        if (rows > 0) {
-            log.info("更新文章改写状态成功: articleId={}", articleId);
-        } else {
-            log.warn("更新文章改写状态失败，可能文章不存在: articleId={}", articleId);
-        }
-    }
+   
 } 

@@ -128,6 +128,7 @@ public interface NewsMapper extends BaseMapper<News> {
             "ORDER BY i.is_cover DESC, i.position ASC " +
             "LIMIT 1) as cover_image " +
             "FROM wf_news n " +
+            "WHERE n.domain_config = #{domainConfig} " +
             "ORDER BY (CASE " +
             "   WHEN n.is_top = 1 THEN 3 " +
             "   WHEN n.is_hot = 1 THEN 2 " +
@@ -135,7 +136,6 @@ public interface NewsMapper extends BaseMapper<News> {
             "   ELSE 0 END) DESC, " +
             "(n.view_count * 0.4 + (UNIX_TIMESTAMP(n.publish_time) / UNIX_TIMESTAMP(NOW())) * 0.6) DESC")
     IPage<News> selectHotAndRecentNews(Page<News> page, @Param("domainConfig") String domainConfig);
-    
     /**
      * 根据ID查询新闻详情，包含内容、图片和标签等所有关联数据
      */

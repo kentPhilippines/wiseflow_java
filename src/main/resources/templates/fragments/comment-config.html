@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>评论规则配置</title>
+</head>
+<body>
+    <!-- 评论规则配置片段 -->
+    <div th:fragment="comment-config">
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary text-white py-3">
+                <h5 class="mb-0 fw-bold"><i class="fas fa-comments me-2"></i>评论规则配置</h5>
+                <small th:if="${batchMode}" class="text-light">正在批量配置 <span th:text="${totalDomains}"></span> 个域名</small>
+            </div>
+            <div class="card-body p-4">
+                <form id="commentConfigForm" method="post">
+                    <input type="hidden" id="domainIds" name="domainIds" th:value="${domainIds}">
+                    <input type="hidden" id="phone" name="phone" th:value="${phone}">
+                    <input type="hidden" id="id" name="id" th:value="${commentRule != null ? commentRule.id : ''}">
+                    
+                    <!-- 只保留需要勾选的评论规则列表 -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold fs-5 mb-3"><i class="fas fa-list-ul me-2"></i>可用评论规则</label>
+                        <div class="border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+                            <div class="list-group">
+                                <div class="list-group-item border-0 py-2" th:each="rule, status : ${commentRules}">
+                                    <div class="d-flex align-items-center">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" 
+                                                   th:id="${'rule-' + rule.id}" 
+                                                   th:name="selectedRules" 
+                                                   th:value="${rule.id}"
+                                                   th:checked="${rule.isInserted}">
+                                            <label class="form-check-label ms-1" th:for="${'rule-' + rule.id}">
+                                                <span class="text-primary fw-medium" th:text="${rule.name}"></span>
+                                                <span class="badge bg-secondary ms-2" th:text="'#' + ${status.count}"></span>
+                                                <div class="d-flex align-items-center mt-1" th:if="${rule.enabled != null}">
+                                                    <span class="badge rounded-pill bg-success me-2" th:if="${rule.enabled}">启用</span>
+                                                    <span class="badge rounded-pill bg-danger me-2" th:unless="${rule.enabled}">禁用</span>
+                                                </div>
+                                                <small class="text-muted d-block mt-1" th:if="${rule.description != null && !rule.description.isEmpty()}" th:text="${rule.description}"></small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="list-group-item border-0 text-center py-3" th:if="${#lists.isEmpty(commentRules)}">
+                                    <span class="text-muted">暂无可用的评论规则</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle me-1"></i>请勾选需要应用的评论规则
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary" onclick="window.close()">
+                            <i class="fas fa-times me-1"></i>取消
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="saveCommentConfig">
+                            <i class="fas fa-save me-1"></i>保存配置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <script th:inline="javascript">
+            document.addEventListener('DOMContentLoaded', function() {
+                // 表单提交
+                document.getElementById('commentConfigForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    const domainIds = formData.get('domainIds');
+                    
+                    // 获取选中的规则ID
+                    const selectedRules = [];
+                    formData.getAll('selectedRules').forEach(ruleId => {
+                        selectedRules.push(parseInt(ruleId));
+                    });
+                    
+                    // 转换为JSON对象
+                    const data = {
+                        domainIds: formData.get('domainIds'),
+                        phone: formData.get('phone'),
+                        selectedRules: selectedRules,
+                        overwriteExisting: formData.has('overwriteExisting')
+                    };
+                    
+                    // 发送请求前显示加载提示
+                    const saveBtn = document.getElementById('saveCommentConfig');
+                    const originalText = saveBtn.innerHTML;
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>保存中...';
+                    
+                    // 发送请求
+                    fetch('/admin/config/comment/save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        // 恢复按钮状态
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                        
+                        if (result.success) {
+                            alert('评论规则配置保存成功！');
+                            window.close();
+                        } else {
+                            alert('保存失败: ' + result.message);
+                        }
+                    })
+                    .catch(error => {
+                        // 恢复按钮状态
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalText;
+                        
+                        console.error('Error saving comment config:', error);
+                        alert('保存评论规则配置失败: ' + error.message);
+                    });
+                });
+            });
+        </script>
+    </div>
+</body>
+</html> 

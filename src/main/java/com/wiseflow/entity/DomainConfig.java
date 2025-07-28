@@ -123,7 +123,12 @@ public class DomainConfig {
      */
     @TableField(exist = false)
     private List<SeoKeyword> seoKeywords;
-    
+
+    /**
+     * 服务器编号/备注
+     */
+    private String serverInfo;
+
     /**
      * 友情链接内部类
      */
@@ -166,5 +171,39 @@ public class DomainConfig {
         return keywordsSeo;
     }
 
+
+    /**
+     * 文章分配规则ID
+     */
+    @TableField(exist = false)
+    private List<Integer> articleRuleIds;
+
+    /**
+     * 改写规则IDs
+     */
+    @TableField(exist = false)
+    private List<Integer> rewriteRuleIds;
+
+    /**
+     * 评论规则IDs
+     */
+    @TableField(exist = false)
+    private List<Integer> commentRuleIds;
+
+
+
+
+
+    //域名数量
+    @TableField(exist = false)
+    private Integer domainCount;
+    //开启数量
+    @TableField(exist = false)
+    private Integer enabledCount;
+    //关闭数量
+    @TableField(exist = false)
+    private Integer disabledCount;
+
+ 
     
 } 

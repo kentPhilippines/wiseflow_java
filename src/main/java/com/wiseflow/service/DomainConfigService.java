@@ -2,6 +2,7 @@ package com.wiseflow.service;
 
 import com.wiseflow.entity.*;
 import com.wiseflow.dto.DomainConfigRequest;
+import com.google.protobuf.ServiceException;
 import java.util.List;
 import java.util.Optional;
 
@@ -127,6 +128,68 @@ public interface DomainConfigService {
      * @param domains 域名列表
      * @param templateId 模板ID（可选）
      * @return 成功生成的配置数量
+     * @throws ServiceException 如果模板不存在或处理过程中出现错误
      */
-    int batchGenerate(List<String> domains, Long templateId);
-} 
+    int batchGenerate(List<String> domains, Long templateId)  ;
+
+    List<DomainConfig> findAllPhone(String phone, String domain);
+
+    void saveCommentConfig(List<Integer> domainIds, String phone, List<Integer> selectedRules,
+            boolean overwriteExisting);
+
+    void saveKeywordConfig(List<Integer> domainIds, String phone, List<Integer> selectedRules,
+            boolean overwriteExisting);
+
+    void saveArticleConfig(List<Integer> domainIds, String phone, List<Integer> selectedRules,
+            boolean overwriteExisting);
+
+    /**
+     * 批量删除指定手机号下的域名配置
+     * 删除逻辑：
+     * 1. 获取到这个批次的所有域名
+     * 2. 根据域名查询域名配置【关键词，评论，文章】并删除配置内容
+     * 3. 删除域名配置
+     * 4. 删除文章和域名的绑定关系
+     * 5. 删除域名
+     * 
+     * @param phone 手机号（批次号）
+     * @param domainIds 要删除的域名配置ID列表，如果为空则删除该手机号下所有域名
+     * @return 删除结果，包含成功删除的数量等信息
+     */
+    BatchDeleteResult batchDeleteByPhone(String phone, List<Integer> domainIds);
+
+    /**
+     * 批量删除结果
+     */
+    class BatchDeleteResult {
+        private boolean success;
+        private int deletedCount;
+        private String message;
+        private List<String> deletedDomains;
+        private List<String> failedDomains;
+
+        public BatchDeleteResult() {}
+
+        public BatchDeleteResult(boolean success, int deletedCount, String message) {
+            this.success = success;
+            this.deletedCount = deletedCount;
+            this.message = message;
+        }
+
+        // Getters and Setters
+        public boolean isSuccess() { return success; }
+        public void setSuccess(boolean success) { this.success = success; }
+        
+        public int getDeletedCount() { return deletedCount; }
+        public void setDeletedCount(int deletedCount) { this.deletedCount = deletedCount; }
+        
+        public String getMessage() { return message; }
+        public void setMessage(String message) { this.message = message; }
+        
+        public List<String> getDeletedDomains() { return deletedDomains; }
+        public void setDeletedDomains(List<String> deletedDomains) { this.deletedDomains = deletedDomains; }
+        
+        public List<String> getFailedDomains() { return failedDomains; }
+        public void setFailedDomains(List<String> failedDomains) { this.failedDomains = failedDomains; }
+    }
+}

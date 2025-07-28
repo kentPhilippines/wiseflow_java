@@ -138,4 +138,29 @@ public class CommentRuleServiceImpl extends ServiceImpl<CommentRuleMapper, Comme
         });
         return commentRules;
     }
+
+    @Override
+    public CommentRule getByDomainId(Integer domainId) {
+        return null;
+    }
+
+    @Override
+    public List<CommentRule> batchConfigComment(List<Integer> batchIdsList, String phone) {
+        List<DomainConfig> domainConfigs = domainConfigService.findAllPhone(phone,"");
+        List<DomainCommentRule> domainCommentRules = domainCommentRuleMapper.selectList(
+            new QueryWrapper<DomainCommentRule>()
+                .in("domain_config_id", domainConfigs.get(0).getId())
+        );
+        //查询所有的
+        List<CommentRule> commentRules = commentRuleMapper.selectList(
+            new QueryWrapper<CommentRule>()
+                .eq("enabled", true)
+                .orderByAsc("id")
+        );
+        //设置是否已插入
+        commentRules.forEach(commentRule -> {
+            commentRule.setIsInserted(domainCommentRules.stream().anyMatch(domainCommentRule -> domainCommentRule.getCommentRuleId().longValue() == commentRule.getId()));
+        });
+        return commentRules;
+    }
 } 

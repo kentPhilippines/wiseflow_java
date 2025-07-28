@@ -3,6 +3,7 @@ package com.wiseflow.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wiseflow.entity.News;
+import com.wiseflow.entity.NewsContent;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -250,4 +251,8 @@ public interface NewsService {
     List<News> getArticlesByTimeRange(String domain, LocalDateTime randomDate, LocalDateTime windowEnd, int i);
 
     List<News> getUncommentedArticles(String domain);
+
+    List<News> getUnrewrittenArticles(String domain);
+
+    NewsContent getNewsContent(Integer id);
 }

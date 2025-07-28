@@ -10,6 +10,7 @@ import com.wiseflow.entity.DomainConfig;
 import com.wiseflow.mapper.DomainArticleRuleMapper;
 import com.wiseflow.service.ArticleRuleService;
 import com.wiseflow.service.DomainConfigService;
+import com.wiseflow.service.ArticleAiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -97,11 +98,32 @@ public class ArticleRuleServiceImpl extends ServiceImpl<ArticleRuleMapper, Artic
         });
 
         return articleRules;
-
-
-
-
-
-
     }
+
+
+
+    @Override
+    public List<ArticleRule> batchConfigArticle(List<Integer> batchIdsList, String phone) {
+        List<DomainConfig> domainConfigs = domainConfigService.findAllPhone(phone,"");
+        List<DomainArticleConfig> domainArticleRules = domainArticleRuleMapper.selectList(
+            new QueryWrapper<DomainArticleConfig>()
+                .in("domain_id", domainConfigs.get(0).getId())
+        );
+
+
+        //查询所有的
+        List<ArticleRule> articleRules = articleRuleMapper.selectList(
+            new QueryWrapper<ArticleRule>()
+                .eq("enabled", true)
+                .orderByAsc("id")
+        );
+
+        //设置是否已插入
+        articleRules.forEach(articleRule -> {
+            articleRule.setIsInserted(domainArticleRules.stream().anyMatch(domainArticleRule -> domainArticleRule.getTypeId() == articleRule.getId()));
+        });
+
+        return articleRules;
+    }
+
 } 
