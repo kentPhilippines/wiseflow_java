@@ -4,3 +4,4 @@ target
 data
 logs
 .env
+app.jar

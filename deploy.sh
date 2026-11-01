@@ -14,6 +14,24 @@ if ! command -v git >/dev/null 2>&1; then
   fail "未安装 git。请先安装后再执行部署。"
 fi
 
+if ! command -v java >/dev/null 2>&1; then
+  fail "未安装 Java。请安装 JDK 11 或更高版本，部署会在服务器上用源码打包。"
+fi
+
+JAVA_VERSION="$(java -version 2>&1 | awk -F '"' '/version/ {print $2; exit}')"
+JAVA_MAJOR="${JAVA_VERSION%%.*}"
+if [[ "$JAVA_MAJOR" == "1" ]]; then
+  JAVA_MAJOR="${JAVA_VERSION#1.}"
+  JAVA_MAJOR="${JAVA_MAJOR%%.*}"
+fi
+if [[ -z "$JAVA_MAJOR" || "$JAVA_MAJOR" -lt 11 ]]; then
+  fail "当前 Java 版本为 ${JAVA_VERSION:-未知}，需要 JDK 11 或更高版本。"
+fi
+
+if ! command -v mvn >/dev/null 2>&1; then
+  fail "未安装 Maven。请先安装 Maven，部署会在服务器上用源码执行 mvn package。"
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
   fail "未安装 Docker。请先安装 Docker Engine。"
 fi
@@ -41,6 +59,8 @@ fi
 
 echo "基础环境检查通过"
 echo "  git     $(git --version)"
+echo "  java    ${JAVA_VERSION}"
+echo "  maven   $(mvn -version | awk 'NR==1 {print $3}')"
 echo "  docker  $(docker --version)"
 echo "  compose ${COMPOSE_VERSION}"
 
@@ -63,7 +83,17 @@ fi
 printf 'SYNC_API_BASE_URL=%s\n' "$SYNC_API_BASE_URL" > .env
 mkdir -p data logs
 
-echo "开始在服务器上编译打包并启动..."
+echo "正在使用源码打包..."
+mvn -B -DskipTests clean package
+
+JAR="target/wiseflow_java-1.0-SNAPSHOT.jar"
+if [[ ! -f "$JAR" ]]; then
+  echo "打包失败，未生成 ${JAR}" >&2
+  exit 1
+fi
+cp "$JAR" app.jar
+
+echo "源码打包完成，开始构建镜像并启动..."
 "${COMPOSE[@]}" up -d --build
 
 echo "部署完成。同步地址: ${SYNC_API_BASE_URL}"
