@@ -26,7 +26,7 @@ public class SyncService {
     private final RestTemplate restTemplate;
     private final ArticleService articleService;
 
-    @Value("${sync.api.base-url:http://www.spider-seo.xyz}")
+    @Value("${sync.api.base-url}")
     private String syncBaseUrl;
 
     private String getSyncUrl(String categoryName) {

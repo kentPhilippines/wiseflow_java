@@ -78,3 +78,8 @@ logging:
 article:
   expire:
     days: 10  # 文章过期天数
+
+# 文章同步接口。容器部署时用环境变量 SYNC_API_BASE_URL 覆盖。
+sync:
+  api:
+    base-url: ${SYNC_API_BASE_URL:http://127.0.0.1:18082}

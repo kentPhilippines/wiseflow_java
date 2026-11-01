@@ -1,0 +1,16 @@
+services:
+  wiseflow:
+    build: .
+    image: wiseflow-java:1.0
+    container_name: wiseflow-java
+    ports:
+      - "8080:8080"
+    environment:
+      # 同步接口根地址，不带末尾路径。例如 http://192.168.1.10:18082
+      SYNC_API_BASE_URL: ${SYNC_API_BASE_URL:-http://host.docker.internal:18082}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
