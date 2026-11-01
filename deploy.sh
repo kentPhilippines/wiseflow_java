@@ -3,6 +3,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+ACTION=deploy
+if [[ "${1:-}" == "restart" ]]; then
+  ACTION=restart
+  shift
+fi
+SYNC_URL="${1:-}"
+
 PM=""
 JAVA_HOME="${JAVA_HOME:-}"
 MAVEN_HOME="${MAVEN_HOME:-}"
@@ -317,39 +324,66 @@ ensure_compose() {
   set_compose_command || fail "Docker Compose 安装后仍不可用。"
 }
 
+prepare_config() {
+  mkdir -p config data logs
+  if [[ ! -f config/application.yml ]]; then
+    cp config/application.yml.example config/application.yml
+    echo "已生成 config/application.yml"
+  fi
+  if [[ -n "$SYNC_URL" ]]; then
+    SYNC_URL="${SYNC_URL%/}"
+    local tmp
+    tmp="$(mktemp)"
+    awk -v url="$SYNC_URL" '
+      /^[[:space:]]*base-url:/ { print "    base-url: " url; next }
+      { print }
+    ' config/application.yml > "$tmp"
+    mv "$tmp" config/application.yml
+  fi
+  if ! grep -Eq '^[[:space:]]*base-url:[[:space:]]*http' config/application.yml; then
+    echo "请在 config/application.yml 中填写 sync.api.base-url，或执行: ./deploy.sh http://地址:端口" >&2
+    exit 1
+  fi
+}
+
 echo "正在检查基础环境..."
 detect_os_tools
-ensure_git
-ensure_java
-ensure_maven
-ensure_docker
-ensure_compose
+if [[ "$ACTION" == "restart" ]]; then
+  ensure_docker
+  ensure_compose
+else
+  ensure_git
+  ensure_java
+  ensure_maven
+  ensure_docker
+  ensure_compose
+fi
 
-JAVA_VERSION="$(java -version 2>&1 | awk -F '"' '/version/ {print $2; exit}')"
 echo "基础环境检查通过"
-echo "  git     $(git --version)"
-echo "  java    ${JAVA_VERSION}"
-echo "  maven   $(mvn -version 2>/dev/null | awk 'NR==1 {print $3}')"
 echo "  docker  $(docker --version)"
 echo "  compose ${COMPOSE_VERSION}"
-
-if [[ $# -ge 1 ]]; then
-  SYNC_API_BASE_URL="$1"
+if [[ "$ACTION" != "restart" ]]; then
+  JAVA_VERSION="$(java -version 2>&1 | awk -F '"' '/version/ {print $2; exit}')"
+  echo "  git     $(git --version)"
+  echo "  java    ${JAVA_VERSION}"
+  echo "  maven   $(mvn -version 2>/dev/null | awk 'NR==1 {print $3}')"
 fi
 
-if [[ -z "${SYNC_API_BASE_URL:-}" ]]; then
-  echo "请指定同步接口根地址，不要带末尾路径。"
-  echo "用法: ./deploy.sh http://192.168.1.10:18082"
-  exit 1
-fi
-
-SYNC_API_BASE_URL="${SYNC_API_BASE_URL%/}"
-
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [[ "$ACTION" != "restart" ]] && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   git pull --ff-only
 fi
 
-printf 'SYNC_API_BASE_URL=%s\n' "$SYNC_API_BASE_URL" > .env
+prepare_config
+
+if [[ "$ACTION" == "restart" ]]; then
+  echo "按 config/application.yml 重新启动，不重新打包..."
+  "${COMPOSE[@]}" up -d --force-recreate --no-build
+  echo "已重启。当前配置:"
+  grep -E 'base-url:|fixed-delay:|days:' config/application.yml
+  echo "查看日志: ${COMPOSE[*]} logs -f"
+  exit 0
+fi
+
 mkdir -p data logs
 
 MAVEN_SETTINGS="$(mktemp /tmp/wiseflow-maven.XXXXXX.xml)"
@@ -379,6 +413,8 @@ cp "$JAR" app.jar
 echo "源码打包完成，开始构建镜像并启动..."
 "${COMPOSE[@]}" up -d --build
 
-echo "部署完成。同步地址: ${SYNC_API_BASE_URL}"
+echo "部署完成。运行配置: config/application.yml"
+grep -E 'base-url:|fixed-delay:|days:' config/application.yml
+echo "以后修改该文件后执行: ./deploy.sh restart"
 echo "查看状态: ${COMPOSE[*]} ps"
 echo "查看日志: ${COMPOSE[*]} logs -f"
