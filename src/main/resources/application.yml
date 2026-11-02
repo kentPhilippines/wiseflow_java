@@ -11,9 +11,9 @@ spring:
   application:
     name: wiseflow-crawler
   
-  # H2 数据库配置
+  # H2 数据库配置。不要使用 AUTO_SERVER，容器主机名无法解析时会启动失败。
   datasource:
-    url: jdbc:h2:file:./data/newsdb;DB_CLOSE_ON_EXIT=FALSE
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/newsdb;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=FALSE}
     username: sa
     password: password
     driver-class-name: org.h2.Driver

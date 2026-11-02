@@ -4,8 +4,7 @@
 
 spring:
   datasource:
-    # 不要开启 AUTO_SERVER，服务器主机名无法解析时 H2 会启动失败。
-    url: jdbc:h2:file:./data/newsdb;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:file:/app/data/newsdb;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=FALSE
 
 crawler:
   fixed-delay: 300000

@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/newsdb;DB_CLOSE_ON_EXIT=FALSE"
+      SPRING_DATASOURCE_URL: "jdbc:h2:file:/app/data/newsdb;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=FALSE"
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

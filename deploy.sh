@@ -349,16 +349,13 @@ prepare_config() {
 
 ensure_h2_url() {
   local file="config/application.yml"
-  local url="jdbc:h2:file:./data/newsdb;DB_CLOSE_ON_EXIT=FALSE"
+  local url="jdbc:h2:file:/app/data/newsdb;DB_CLOSE_ON_EXIT=FALSE;AUTO_SERVER=FALSE"
   local tmp
-  if grep -q 'AUTO_SERVER=TRUE' "$file"; then
-    tmp="$(mktemp)"
+  tmp="$(mktemp)"
+  if grep -q 'jdbc:h2:' "$file"; then
     sed "s|jdbc:h2:[^[:space:]]*|${url}|g" "$file" > "$tmp"
     mv "$tmp" "$file"
-    echo "已关闭 H2 自动服务模式，避免主机名无法解析。"
-    return
-  fi
-  if grep -q 'jdbc:h2:' "$file"; then
+    echo "已更新 application.yml 中的 H2 地址，并关闭自动服务模式。"
     return
   fi
   cat >> "$file" <<EOF
@@ -367,7 +364,7 @@ spring:
   datasource:
     url: ${url}
 EOF
-  echo "已写入 H2 数据库地址，避免主机名无法解析。"
+  echo "已写入 application.yml 中的 H2 地址，并关闭自动服务模式。"
 }
 
 echo "正在检查基础环境..."
